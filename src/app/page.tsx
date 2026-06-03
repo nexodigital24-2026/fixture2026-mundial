@@ -664,68 +664,351 @@ function StadiumsView() {
 
 // ==================== Admin Panel ====================
 interface AdminUser { id: string; name: string; email: string; role: string; createdAt: string; _count: { simulations: number } }
+interface AdminStats {
+  totalUsers: number; totalAdmins: number; totalSimulations: number; activeUsers: number;
+  groupSims: number; knockoutSims: number; newUsersThisWeek: number; newSimsThisWeek: number;
+  recentUsers: { id: string; name: string; email: string; role: string; createdAt: string; _count: { simulations: number } }[];
+  topUsers: { id: string; name: string; email: string; _count: { simulations: number } }[];
+}
 
 function AdminPanel() {
   const [users, setUsers] = useState<AdminUser[]>([])
+  const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'users' | 'system'>('dashboard')
 
-  const loadUsers = async () => {
+  const loadData = async () => {
+    setLoading(true)
     try {
-      const res = await fetch('/api/admin/users')
-      if (res.ok) setUsers(await res.json())
+      const [usersRes, statsRes] = await Promise.all([
+        fetch('/api/admin/users'),
+        fetch('/api/admin/stats'),
+      ])
+      if (usersRes.ok) setUsers(await usersRes.json())
+      if (statsRes.ok) setStats(await statsRes.json())
     } catch { /* ignore */ } finally { setLoading(false) }
   }
 
-  useEffect(() => { loadUsers() }, [])
+  useEffect(() => { loadData() }, [])
 
   const deleteUser = async (id: string) => {
     if (!confirm('¿Eliminar este usuario y todas sus simulaciones?')) return
     const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' })
-    if (res.ok) setUsers((prev) => prev.filter((u) => u.id !== id))
+    if (res.ok) { setUsers((prev) => prev.filter((u) => u.id !== id)); loadData() }
   }
 
   const toggleRole = async (id: string, currentRole: string) => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin'
     const res = await fetch(`/api/admin/users/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: newRole }) })
-    if (res.ok) setUsers((prev) => prev.map((u) => u.id === id ? { ...u, role: newRole } : u))
+    if (res.ok) { setUsers((prev) => prev.map((u) => u.id === id ? { ...u, role: newRole } : u)); loadData() }
+  }
+
+  if (loading || !stats) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
+      </div>
+    )
   }
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div><h2 className="text-2xl font-black text-gray-900">Panel de Administración</h2><p className="text-sm text-gray-500">Gestiona usuarios y simulaciones</p></div>
-        <Button variant="outline" size="sm" onClick={loadUsers} className="text-xs"><RotateCcw className="w-3 h-3 mr-1" />Actualizar</Button>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-black text-gray-900 flex items-center gap-2">
+            <Crown className="w-6 h-6 text-amber-500" />
+            Panel de Administración
+          </h2>
+          <p className="text-sm text-gray-500">Gestiona usuarios, simulaciones y configuración del sistema</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={loadData} className="text-xs">
+          <RotateCcw className="w-3 h-3 mr-1" />Actualizar
+        </Button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl border border-gray-200 p-4 text-center"><Users className="w-5 h-5 text-sky-500 mx-auto mb-1" /><p className="text-2xl font-black text-gray-900">{users.length}</p><p className="text-xs text-gray-500">Usuarios</p></div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 text-center"><Crown className="w-5 h-5 text-amber-500 mx-auto mb-1" /><p className="text-2xl font-black text-gray-900">{users.filter((u) => u.role === 'admin').length}</p><p className="text-xs text-gray-500">Admins</p></div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 text-center"><Shield className="w-5 h-5 text-emerald-500 mx-auto mb-1" /><p className="text-2xl font-black text-gray-900">{users.reduce((a, u) => a + u._count.simulations, 0)}</p><p className="text-xs text-gray-500">Simulaciones</p></div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 text-center"><Play className="w-5 h-5 text-violet-500 mx-auto mb-1" /><p className="text-2xl font-black text-gray-900">{users.filter((u) => u._count.simulations > 0).length}</p><p className="text-xs text-gray-500">Activos</p></div>
+      {/* Admin Sub-Tabs */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {[
+          { key: 'dashboard' as const, label: 'Dashboard', icon: <Zap className="w-3.5 h-3.5" /> },
+          { key: 'users' as const, label: 'Usuarios', icon: <Users className="w-3.5 h-3.5" /> },
+          { key: 'system' as const, label: 'Sistema', icon: <Shield className="w-3.5 h-3.5" /> },
+        ].map((tab) => (
+          <button key={tab.key} onClick={() => setAdminTab(tab.key)}
+            className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${adminTab === tab.key ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+            {tab.icon}{tab.label}
+          </button>
+        ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100"><h3 className="font-bold text-gray-900">Usuarios Registrados</h3></div>
-        {loading ? <div className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400 mx-auto" /></div> : users.length === 0 ? <div className="p-8 text-center text-gray-400">No hay usuarios</div> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-gray-100 bg-gray-50"><th className="text-left py-3 px-4 font-medium text-gray-500">Usuario</th><th className="text-left py-3 px-4 font-medium text-gray-500">Email</th><th className="text-center py-3 px-4 font-medium text-gray-500">Rol</th><th className="text-center py-3 px-4 font-medium text-gray-500">Simulaciones</th><th className="text-center py-3 px-4 font-medium text-gray-500">Registro</th><th className="text-center py-3 px-4 font-medium text-gray-500">Acciones</th></tr></thead>
-              <tbody>{users.map((u) => (
-                <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                  <td className="py-3 px-4"><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold">{u.name?.[0]?.toUpperCase() || '?'}</div><span className="font-medium text-gray-900">{u.name}</span></div></td>
-                  <td className="py-3 px-4 text-gray-600">{u.email}</td>
-                  <td className="py-3 px-4 text-center"><Badge className={`${u.role === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'} border-0 text-xs font-bold`}>{u.role === 'admin' ? <><Crown className="w-3 h-3 mr-1" />Admin</> : <><User className="w-3 h-3 mr-1" />Usuario</>}</Badge></td>
-                  <td className="py-3 px-4 text-center font-bold text-gray-900">{u._count.simulations}</td>
-                  <td className="py-3 px-4 text-center text-gray-500 text-xs">{new Date(u.createdAt).toLocaleDateString('es')}</td>
-                  <td className="py-3 px-4 text-center"><div className="flex items-center justify-center gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => toggleRole(u.id, u.role)} className="text-xs h-7 px-2" title={u.role === 'admin' ? 'Quitar admin' : 'Hacer admin'}><Crown className={`w-3.5 h-3.5 ${u.role === 'admin' ? 'text-amber-500' : 'text-gray-300'}`} /></Button>
-                    <Button variant="ghost" size="sm" onClick={() => deleteUser(u.id)} className="text-xs h-7 px-2 text-red-500 hover:text-red-700 hover:bg-red-50" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></Button>
-                  </div></td>
-                </tr>))}</tbody>
-            </table>
+      {/* Dashboard Tab */}
+      {adminTab === 'dashboard' && (
+        <div className="space-y-4">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
+              className="bg-white rounded-xl border border-gray-200 p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+              <Users className="w-5 h-5 text-sky-500 mx-auto mb-1.5" />
+              <p className="text-2xl font-black text-gray-900">{stats.totalUsers}</p>
+              <p className="text-xs text-gray-500">Usuarios</p>
+              {stats.newUsersThisWeek > 0 && <p className="text-[10px] text-emerald-500 font-bold mt-1">+{stats.newUsersThisWeek} esta semana</p>}
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+              className="bg-white rounded-xl border border-gray-200 p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+              <Shield className="w-5 h-5 text-emerald-500 mx-auto mb-1.5" />
+              <p className="text-2xl font-black text-gray-900">{stats.totalSimulations}</p>
+              <p className="text-xs text-gray-500">Simulaciones</p>
+              {stats.newSimsThisWeek > 0 && <p className="text-[10px] text-emerald-500 font-bold mt-1">+{stats.newSimsThisWeek} esta semana</p>}
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+              className="bg-white rounded-xl border border-gray-200 p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+              <Play className="w-5 h-5 text-violet-500 mx-auto mb-1.5" />
+              <p className="text-2xl font-black text-gray-900">{stats.activeUsers}</p>
+              <p className="text-xs text-gray-500">Activos</p>
+              <p className="text-[10px] text-gray-400 mt-1">{stats.totalUsers > 0 ? Math.round((stats.activeUsers / stats.totalUsers) * 100) : 0}% del total</p>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+              className="bg-white rounded-xl border border-gray-200 p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+              <Crown className="w-5 h-5 text-amber-500 mx-auto mb-1.5" />
+              <p className="text-2xl font-black text-gray-900">{stats.totalAdmins}</p>
+              <p className="text-xs text-gray-500">Admins</p>
+            </motion.div>
           </div>
-        )}
-      </div>
+
+          {/* Simulation Breakdown */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Card className="overflow-hidden border-gray-200/80 shadow-sm">
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900">Simulaciones por Tipo</h3>
+              </div>
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-gray-600 font-medium">Fase de Grupos</span>
+                      <span className="font-bold text-gray-900">{stats.groupSims}</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2.5">
+                      <div className="bg-gradient-to-r from-sky-500 to-blue-600 h-2.5 rounded-full transition-all" style={{ width: `${stats.totalSimulations > 0 ? (stats.groupSims / stats.totalSimulations) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-gray-600 font-medium">Llaves Eliminatorias</span>
+                      <span className="font-bold text-gray-900">{stats.knockoutSims}</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2.5">
+                      <div className="bg-gradient-to-r from-violet-500 to-purple-600 h-2.5 rounded-full transition-all" style={{ width: `${stats.totalSimulations > 0 ? (stats.knockoutSims / stats.totalSimulations) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden border-gray-200/80 shadow-sm">
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900">Top Simuladores</h3>
+              </div>
+              <CardContent className="p-4">
+                <div className="space-y-2.5">
+                  {stats.topUsers.length === 0 ? (
+                    <p className="text-xs text-gray-400 text-center py-4">Sin datos aún</p>
+                  ) : stats.topUsers.map((u, i) => (
+                    <div key={u.id} className="flex items-center gap-2.5">
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${i === 0 ? 'bg-amber-500' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-amber-700' : 'bg-gray-300'}`}>{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-gray-900 truncate">{u.name}</p>
+                        <p className="text-[10px] text-gray-400 truncate">{u.email}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] font-bold">{u._count.simulations} sim</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent Users */}
+          <Card className="overflow-hidden border-gray-200/80 shadow-sm">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900">Usuarios Recientes</h3>
+            </div>
+            <CardContent className="p-0">
+              <div className="divide-y divide-gray-50">
+                {stats.recentUsers.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-6">Sin usuarios registrados</p>
+                ) : stats.recentUsers.map((u) => (
+                  <div key={u.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50/50">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{u.name?.[0]?.toUpperCase() || '?'}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-bold text-gray-900 truncate">{u.name}</p>
+                        {u.role === 'admin' && <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />}
+                      </div>
+                      <p className="text-[10px] text-gray-400 truncate">{u.email}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[10px] text-gray-400">{new Date(u.createdAt).toLocaleDateString('es')}</p>
+                      <p className="text-[10px] text-gray-500 font-medium">{u._count.simulations} sim</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Users Tab */}
+      {adminTab === 'users' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-xl border border-gray-200 p-3 text-center shadow-sm">
+              <p className="text-lg font-black text-gray-900">{stats.totalUsers}</p>
+              <p className="text-[10px] text-gray-500">Total</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-3 text-center shadow-sm">
+              <p className="text-lg font-black text-emerald-600">{stats.activeUsers}</p>
+              <p className="text-[10px] text-gray-500">Activos</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-3 text-center shadow-sm">
+              <p className="text-lg font-black text-amber-600">{stats.totalAdmins}</p>
+              <p className="text-[10px] text-gray-500">Admins</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 text-sm">Usuarios Registrados</h3>
+              <Badge variant="secondary" className="text-[10px]">{users.length} total</Badge>
+            </div>
+            {users.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">No hay usuarios</div>
+            ) : (
+              <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-gray-50 z-10"><tr className="border-b border-gray-100"><th className="text-left py-3 px-4 font-medium text-gray-500">Usuario</th><th className="text-left py-3 px-4 font-medium text-gray-500">Email</th><th className="text-center py-3 px-4 font-medium text-gray-500">Rol</th><th className="text-center py-3 px-4 font-medium text-gray-500">Sim</th><th className="text-center py-3 px-4 font-medium text-gray-500">Registro</th><th className="text-center py-3 px-4 font-medium text-gray-500">Acciones</th></tr></thead>
+                  <tbody>{users.map((u) => (
+                    <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                      <td className="py-3 px-4"><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold">{u.name?.[0]?.toUpperCase() || '?'}</div><span className="font-medium text-gray-900">{u.name}</span></div></td>
+                      <td className="py-3 px-4 text-gray-600 text-xs">{u.email}</td>
+                      <td className="py-3 px-4 text-center"><Badge className={`${u.role === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'} border-0 text-xs font-bold`}>{u.role === 'admin' ? <><Crown className="w-3 h-3 mr-1" />Admin</> : <><User className="w-3 h-3 mr-1" />User</>}</Badge></td>
+                      <td className="py-3 px-4 text-center font-bold text-gray-900">{u._count.simulations}</td>
+                      <td className="py-3 px-4 text-center text-gray-500 text-xs">{new Date(u.createdAt).toLocaleDateString('es')}</td>
+                      <td className="py-3 px-4 text-center"><div className="flex items-center justify-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => toggleRole(u.id, u.role)} className="text-xs h-7 px-2" title={u.role === 'admin' ? 'Quitar admin' : 'Hacer admin'}><Crown className={`w-3.5 h-3.5 ${u.role === 'admin' ? 'text-amber-500' : 'text-gray-300'}`} /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => deleteUser(u.id)} className="text-xs h-7 px-2 text-red-500 hover:text-red-700 hover:bg-red-50" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </div></td>
+                    </tr>))}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* System Tab */}
+      {adminTab === 'system' && (
+        <div className="space-y-4">
+          <Card className="overflow-hidden border-gray-200/80 shadow-sm">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900">Información del Sistema</h3>
+            </div>
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                {[
+                  { label: 'Plataforma', value: 'Next.js 16 + TypeScript' },
+                  { label: 'Base de Datos', value: 'SQLite (Prisma ORM)' },
+                  { label: 'Autenticación', value: 'NextAuth.js v4 (JWT)' },
+                  { label: 'UI Framework', value: 'Tailwind CSS + shadcn/ui' },
+                  { label: 'Animaciones', value: 'Framer Motion' },
+                  { label: 'Equipos', value: `${tournamentInfo.totalTeams} selecciones` },
+                  { label: 'Grupos', value: `${tournamentInfo.totalGroups} grupos (A-L)` },
+                  { label: 'Partidos Grupo', value: '72 (6 por grupo)' },
+                  { label: 'Partidos Eliminatoria', value: '32 (16+8+4+2+1+1)' },
+                  { label: 'Total Partidos', value: '104' },
+                  { label: 'Sedes', value: '16 estadios en 3 países' },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                    <span className="text-xs text-gray-500">{item.label}</span>
+                    <span className="text-xs font-bold text-gray-900">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden border-gray-200/80 shadow-sm">
+            <div className="px-4 py-3 bg-amber-50 border-b border-amber-100">
+              <h3 className="text-sm font-bold text-amber-800 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                Seguridad
+              </h3>
+            </div>
+            <CardContent className="p-4">
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                  <span className="text-gray-700">Credenciales de admin ocultas del formulario de login</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                  <span className="text-gray-700">Contraseñas encriptadas con bcrypt</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                  <span className="text-gray-700">Sesiones JWT con expiración de 30 días</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                  <span className="text-gray-700">APIs de admin protegidas por verificación de rol</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                  <span className="text-gray-700">Panel de admin visible solo para usuarios con rol admin</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden border-gray-200/80 shadow-sm">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900">Estructura de Datos</h3>
+            </div>
+            <CardContent className="p-4">
+              <div className="space-y-3 font-mono text-[11px]">
+                <div className="bg-gray-900 text-green-400 rounded-lg p-3 overflow-x-auto">
+                  <pre>{`models:
+  User:
+    id        String   @id @default(cuid())
+    email     String   @unique
+    name      String
+    password  String   (bcrypt hashed)
+    role      String   ("admin" | "user")
+    avatar    String?
+    simulations Simulation[]
+    createdAt DateTime
+    updatedAt DateTime
+
+  Simulation:
+    id         String  @id @default(cuid())
+    userId     String  → User
+    matchId    Int
+    matchType  String  ("group" | "knockout")
+    homeScore  Int     (-1 = not set)
+    awayScore  Int     (-1 = not set)
+    @@unique([userId, matchId, matchType])
+
+  Config:
+    id    String @id @default(cuid())
+    key   String @unique
+    value String`}</pre>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

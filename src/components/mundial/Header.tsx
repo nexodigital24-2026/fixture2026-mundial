@@ -76,11 +76,7 @@ function AuthDialog({ mode, onModeChange, onSuccess, loginFn, registerFn }: {
       <div className="text-center text-xs text-gray-500">
         {mode === 'login' ? <>¿No tienes cuenta? <button type="button" onClick={() => onModeChange('register')} className="text-sky-600 font-bold hover:underline">Regístrate</button></> : <>¿Ya tienes cuenta? <button type="button" onClick={() => onModeChange('login')} className="text-sky-600 font-bold hover:underline">Inicia sesión</button></>}
       </div>
-      {mode === 'login' && (
-        <div className="text-center text-[10px] text-gray-400 mt-2 bg-gray-50 rounded-lg p-2">
-          <strong>Admin:</strong> admin@mundial2026.com / admin123
-        </div>
-      )}
+      {/* Admin credentials are never displayed for security */}
     </form>
   )
 }
