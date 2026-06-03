@@ -282,3 +282,355 @@ export const venues = [
   { name: "Boston Stadium", city: "Boston", country: "EE.UU.", realName: "Gillette Stadium", image: "/stadiums/stadium_15.png" },
   { name: "New York New Jersey Stadium", city: "Nueva York", country: "EE.UU.", realName: "MetLife Stadium", image: "/stadiums/stadium_16.png" },
 ];
+
+// ─── Bracket (Knockout Phase) ────────────────────────────────────────────────
+
+export interface KnockoutSlot {
+  position: string; // e.g. "1° Grupo A", "2° Grupo B", "3° Mejor 1", etc.
+  teamCode: string | null; // null until determined
+  flag: string; // emoji flag or "🏳️" if TBD
+  name: string; // display name or "Por definir"
+}
+
+export interface BracketMatch {
+  id: number;
+  home: KnockoutSlot;
+  away: KnockoutSlot;
+  homeScore: number | null;
+  awayScore: number | null;
+  date: string;
+  venue: string;
+}
+
+export interface BracketRound {
+  name: string;
+  shortName: string;
+  matches: BracketMatch[];
+}
+
+export const bracketRounds: BracketRound[] = [
+  {
+    name: "Dieciseisavos de Final",
+    shortName: "Dieciseisavos",
+    matches: [
+      {
+        id: 73,
+        home: { position: "1° Grupo A", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo B", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "28 Jun",
+        venue: "Mexico City Stadium",
+      },
+      {
+        id: 74,
+        home: { position: "1° Grupo C", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo D", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "28 Jun",
+        venue: "Atlanta Stadium",
+      },
+      {
+        id: 75,
+        home: { position: "1° Grupo E", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo F", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "28 Jun",
+        venue: "Houston Stadium",
+      },
+      {
+        id: 76,
+        home: { position: "1° Grupo G", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo H", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "29 Jun",
+        venue: "Seattle Stadium",
+      },
+      {
+        id: 77,
+        home: { position: "1° Grupo I", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo J", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "29 Jun",
+        venue: "Boston Stadium",
+      },
+      {
+        id: 78,
+        home: { position: "1° Grupo K", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo L", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "29 Jun",
+        venue: "Dallas Stadium",
+      },
+      {
+        id: 79,
+        home: { position: "1° Grupo B", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo A", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "30 Jun",
+        venue: "Toronto Stadium",
+      },
+      {
+        id: 80,
+        home: { position: "1° Grupo D", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo C", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "30 Jun",
+        venue: "San Francisco Bay Area Stadium",
+      },
+      {
+        id: 81,
+        home: { position: "1° Grupo F", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo E", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "30 Jun",
+        venue: "BC Place Vancouver",
+      },
+      {
+        id: 82,
+        home: { position: "1° Grupo H", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo G", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "1 Jul",
+        venue: "Miami Stadium",
+      },
+      {
+        id: 83,
+        home: { position: "1° Grupo J", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo I", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "1 Jul",
+        venue: "Philadelphia Stadium",
+      },
+      {
+        id: 84,
+        home: { position: "1° Grupo L", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "2° Grupo K", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "1 Jul",
+        venue: "New York New Jersey Stadium",
+      },
+      {
+        id: 85,
+        home: { position: "3° (ABFJ)", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "3° (CDE)", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "2 Jul",
+        venue: "Estadio Monterrey",
+      },
+      {
+        id: 86,
+        home: { position: "3° (ABFJ)", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "3° (GHI)", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "2 Jul",
+        venue: "Los Angeles Stadium",
+      },
+      {
+        id: 87,
+        home: { position: "3° (CDE)", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "3° (KLM)", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "3 Jul",
+        venue: "Kansas City Stadium",
+      },
+      {
+        id: 88,
+        home: { position: "3° (GHI)", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "3° (KLM)", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "3 Jul",
+        venue: "Estadio Guadalajara",
+      },
+    ],
+  },
+  {
+    name: "Octavos de Final",
+    shortName: "Octavos",
+    matches: [
+      {
+        id: 89,
+        home: { position: "Ganador Match 73", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 74", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "4 Jul",
+        venue: "Por definir",
+      },
+      {
+        id: 90,
+        home: { position: "Ganador Match 77", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 78", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "4 Jul",
+        venue: "Por definir",
+      },
+      {
+        id: 91,
+        home: { position: "Ganador Match 81", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 82", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "5 Jul",
+        venue: "Por definir",
+      },
+      {
+        id: 92,
+        home: { position: "Ganador Match 85", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 86", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "5 Jul",
+        venue: "Por definir",
+      },
+      {
+        id: 93,
+        home: { position: "Ganador Match 75", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 76", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "5 Jul",
+        venue: "Por definir",
+      },
+      {
+        id: 94,
+        home: { position: "Ganador Match 79", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 80", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "6 Jul",
+        venue: "Por definir",
+      },
+      {
+        id: 95,
+        home: { position: "Ganador Match 83", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 84", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "6 Jul",
+        venue: "Por definir",
+      },
+      {
+        id: 96,
+        home: { position: "Ganador Match 87", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 88", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "6 Jul",
+        venue: "Por definir",
+      },
+    ],
+  },
+  {
+    name: "Cuartos de Final",
+    shortName: "Cuartos",
+    matches: [
+      {
+        id: 97,
+        home: { position: "Ganador Match 89", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 90", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "9 Jul",
+        venue: "Los Angeles Stadium",
+      },
+      {
+        id: 98,
+        home: { position: "Ganador Match 91", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 92", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "9 Jul",
+        venue: "Miami Stadium",
+      },
+      {
+        id: 99,
+        home: { position: "Ganador Match 93", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 94", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "10 Jul",
+        venue: "Kansas City Stadium",
+      },
+      {
+        id: 100,
+        home: { position: "Ganador Match 95", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 96", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "10 Jul",
+        venue: "Boston Stadium",
+      },
+    ],
+  },
+  {
+    name: "Semifinales",
+    shortName: "Semifinales",
+    matches: [
+      {
+        id: 101,
+        home: { position: "Ganador Match 97", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 98", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "14 Jul",
+        venue: "Dallas Stadium",
+      },
+      {
+        id: 102,
+        home: { position: "Ganador Match 99", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 100", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "15 Jul",
+        venue: "Atlanta Stadium",
+      },
+    ],
+  },
+  {
+    name: "3er y 4to Puesto",
+    shortName: "3er Puesto",
+    matches: [
+      {
+        id: 103,
+        home: { position: "Perdedor Match 101", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Perdedor Match 102", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "18 Jul",
+        venue: "Miami Stadium",
+      },
+    ],
+  },
+  {
+    name: "Final",
+    shortName: "Final",
+    matches: [
+      {
+        id: 104,
+        home: { position: "Ganador Match 101", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "Ganador Match 102", teamCode: null, flag: "🏳️", name: "Por definir" },
+        homeScore: null,
+        awayScore: null,
+        date: "19 Jul",
+        venue: "New York New Jersey Stadium",
+      },
+    ],
+  },
+];
