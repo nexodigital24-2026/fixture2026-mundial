@@ -1,349 +1,284 @@
-// Copa Confederación de Selecciones - Tournament Data
+// FIFA World Cup 2026 - Real Data from Infobae
 
 export interface Team {
   name: string;
-  flag: string; // emoji flag
-  code: string; // country code
+  flag: string;
+  code: string;
+}
+
+export interface GroupMatch {
+  id: number;
+  group: string;
+  matchday: number;
+  home: Team;
+  away: Team;
+  date: string;
+  time: string;
+  venue: string;
 }
 
 export interface Group {
   id: string;
   name: string;
-  color: string; // tailwind color class
-  bgColor: string; // tailwind bg color
-  borderColor: string; // tailwind border color
   teams: Team[];
+  matches: GroupMatch[];
 }
 
-export interface Match {
+export interface KnockoutMatch {
   id: number;
-  home: Team;
-  away: Team;
-  homeScore?: number;
-  awayScore?: number;
-  date?: string;
-  time?: string;
-  venue?: string;
-  played?: boolean;
+  round: string;
+  home: string; // team code or "TBD"
+  away: string;
+  date: string;
+  time: string;
+  venue: string;
 }
 
-export interface KnockoutRound {
-  id: string;
-  name: string;
-  shortName: string;
-  matches: Match[];
-}
-
-// Country flag mapping
 const flags: Record<string, string> = {
-  "México": "🇲🇽",
-  "Japón": "🇯🇵",
-  "Brasil": "🇧🇷",
-  "Paraguay": "🇵🇾",
-  "Bélgica": "🇧🇪",
-  "Croacia": "🇭🇷",
-  "Francia": "🇫🇷",
-  "Corea del Sur": "🇰🇷",
-  "Alemania": "🇩🇪",
-  "Bosnia y Herzegovina": "🇧🇦",
-  "Portugal": "🇵🇹",
-  "Cabo Verde": "🇨🇻",
-  "Camerún": "🇨🇲",
-  "Catar": "🇶🇦",
-  "Angola": "🇦🇴",
-  "Haití": "🇭🇹",
-  "Polonia": "🇵🇱",
-  "Sudáfrica": "🇿🇦",
-  "Estados Unidos": "🇺🇸",
-  "Marruecos": "🇲🇦",
-  "Inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
-  "Egipto": "🇪🇬",
-  "España": "🇪🇸",
-  "Australia": "🇦🇺",
-  "Argentina": "🇦🇷",
-  "Costa de Marfil": "🇨🇮",
-  "Senegal": "🇸🇳",
-  "Suecia": "🇸🇪",
-  "Congo DRC": "🇨🇩",
-  "Irán": "🇮🇷",
-  "Canadá": "🇨🇦",
-  "Arabia Saudita": "🇸🇦",
-  "Italia": "🇮🇹",
-  "Costa Rica": "🇨🇷",
-  "Chile": "🇨🇱",
-  "Suiza": "🇨🇭",
-  "Ecuador": "🇪🇨",
-  "Rusia": "🇷🇺",
-  "Países Bajos": "🇳🇱",
-  "Túnez": "🇹🇳",
-  "Turquía": "🇹🇷",
-  "Tailandia": "🇹🇭",
-  "Vietnam": "🇻🇳",
-  "Nueva Zelanda": "🇳🇿",
-  "Noruega": "🇳🇴",
-  "Colombia": "🇨🇴",
-  "Ghana": "🇬🇭",
-  "Panamá": "🇵🇦",
-  "Uruguay": "🇺🇾",
-  "Irak": "🇮🇶",
-  "Jordania": "🇯🇴",
-  "Austria": "🇦🇹",
-  "Hungría": "🇭🇺",
-  "India": "🇮🇳",
-  "Ucrania": "🇺🇦",
+  MEX: "🇲🇽", RSA: "🇿🇦", KOR: "🇰🇷", CZE: "🇨🇿",
+  CAN: "🇨🇦", BIH: "🇧🇦", QAT: "🇶🇦", SUI: "🇨🇭",
+  BRA: "🇧🇷", MAR: "🇲🇦", HAI: "🇭🇹", SCO: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+  USA: "🇺🇸", PAR: "🇵🇾", AUS: "🇦🇺", TUR: "🇹🇷",
+  GER: "🇩🇪", CUW: "🇨🇼", CIV: "🇨🇮", ECU: "🇪🇨",
+  NED: "🇳🇱", JAP: "🇯🇵", SWE: "🇸🇪", TUN: "🇹🇳",
+  BEL: "🇧🇪", EGY: "🇪🇬", IRN: "🇮🇷", NZL: "🇳🇿",
+  ESP: "🇪🇸", CPV: "🇨🇻", KSA: "🇸🇦", URU: "🇺🇾",
+  FRA: "🇫🇷", SEN: "🇸🇳", IRQ: "🇮🇶", NOR: "🇳🇴",
+  ARG: "🇦🇷", ALG: "🇩🇿", AUT: "🇦🇹", JOR: "🇯🇴",
+  POR: "🇵🇹", COD: "🇨🇩", UZB: "🇺🇿", COL: "🇨🇴",
+  ENG: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", CRO: "🇭🇷", GHA: "🇬🇭", PAN: "🇵🇦",
 };
 
-const codes: Record<string, string> = {
-  "México": "MEX",
-  "Japón": "JPN",
-  "Brasil": "BRA",
-  "Paraguay": "PAR",
-  "Bélgica": "BEL",
-  "Croacia": "CRO",
-  "Francia": "FRA",
-  "Corea del Sur": "KOR",
-  "Alemania": "GER",
-  "Bosnia y Herzegovina": "BIH",
-  "Portugal": "POR",
-  "Cabo Verde": "CPV",
-  "Camerún": "CMR",
-  "Catar": "QAT",
-  "Angola": "ANG",
-  "Haití": "HAI",
-  "Polonia": "POL",
-  "Sudáfrica": "RSA",
-  "Estados Unidos": "USA",
-  "Marruecos": "MAR",
-  "Inglaterra": "ENG",
-  "Egipto": "EGY",
-  "España": "ESP",
-  "Australia": "AUS",
-  "Argentina": "ARG",
-  "Costa de Marfil": "CIV",
-  "Senegal": "SEN",
-  "Suecia": "SWE",
-  "Congo DRC": "COD",
-  "Irán": "IRN",
-  "Canadá": "CAN",
-  "Arabia Saudita": "KSA",
-  "Italia": "ITA",
-  "Costa Rica": "CRC",
-  "Chile": "CHI",
-  "Suiza": "SUI",
-  "Ecuador": "ECU",
-  "Rusia": "RUS",
-  "Países Bajos": "NED",
-  "Túnez": "TUN",
-  "Turquía": "TUR",
-  "Tailandia": "THA",
-  "Vietnam": "VIE",
-  "Nueva Zelanda": "NZL",
-  "Noruega": "NOR",
-  "Colombia": "COL",
-  "Ghana": "GHA",
-  "Panamá": "PAN",
-  "Uruguay": "URU",
-  "Irak": "IRQ",
-  "Jordania": "JOR",
-  "Austria": "AUT",
-  "Hungría": "HUN",
-  "India": "IND",
-  "Ucrania": "UKR",
+const names: Record<string, string> = {
+  MEX: "México", RSA: "Sudáfrica", KOR: "Corea del Sur", CZE: "Rep. Checa",
+  CAN: "Canadá", BIH: "Bosnia-Herz.", QAT: "Catar", SUI: "Suiza",
+  BRA: "Brasil", MAR: "Marruecos", HAI: "Haití", SCO: "Escocia",
+  USA: "Estados Unidos", PAR: "Paraguay", AUS: "Australia", TUR: "Turquía",
+  GER: "Alemania", CUW: "Curazao", CIV: "Costa de Marfil", ECU: "Ecuador",
+  NED: "Países Bajos", JAP: "Japón", SWE: "Suecia", TUN: "Túnez",
+  BEL: "Bélgica", EGY: "Egipto", IRN: "Irán", NZL: "Nueva Zelanda",
+  ESP: "España", CPV: "Cabo Verde", KSA: "Arabia Saudita", URU: "Uruguay",
+  FRA: "Francia", SEN: "Senegal", IRQ: "Irak", NOR: "Noruega",
+  ARG: "Argentina", ALG: "Argelia", AUT: "Austria", JOR: "Jordania",
+  POR: "Portugal", COD: "RD Congo", UZB: "Uzbekistán", COL: "Colombia",
+  ENG: "Inglaterra", CRO: "Croacia", GHA: "Ghana", PAN: "Panamá",
 };
 
-function makeTeam(name: string): Team {
-  return {
-    name,
-    flag: flags[name] || "🏳️",
-    code: codes[name] || name.substring(0, 3).toUpperCase(),
-  };
+function t(code: string): Team {
+  return { code, flag: flags[code] || "🏳️", name: names[code] || code };
 }
 
-// 12 Groups with 4 teams each
+const groupColors: Record<string, { bg: string; border: string; text: string; gradient: string; headerFrom: string; headerTo: string }> = {
+  A: { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-700", gradient: "from-rose-500 to-pink-600", headerFrom: "from-rose-500", headerTo: "to-pink-600" },
+  B: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", gradient: "from-emerald-500 to-teal-600", headerFrom: "from-emerald-500", headerTo: "to-teal-600" },
+  C: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", gradient: "from-amber-500 to-yellow-600", headerFrom: "from-amber-500", headerTo: "to-yellow-600" },
+  D: { bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-700", gradient: "from-sky-500 to-blue-600", headerFrom: "from-sky-500", headerTo: "to-blue-600" },
+  E: { bg: "bg-red-50", border: "border-red-200", text: "text-red-700", gradient: "from-red-500 to-rose-600", headerFrom: "from-red-500", headerTo: "to-rose-600" },
+  F: { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-700", gradient: "from-orange-500 to-amber-600", headerFrom: "from-orange-500", headerTo: "to-amber-600" },
+  G: { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700", gradient: "from-violet-500 to-purple-600", headerFrom: "from-violet-500", headerTo: "to-purple-600" },
+  H: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700", gradient: "from-indigo-500 to-blue-600", headerFrom: "from-indigo-500", headerTo: "to-blue-600" },
+  I: { bg: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-700", gradient: "from-cyan-500 to-teal-600", headerFrom: "from-cyan-500", headerTo: "to-teal-600" },
+  J: { bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-700", gradient: "from-sky-400 to-cyan-600", headerFrom: "from-sky-400", headerTo: "to-cyan-600" },
+  K: { bg: "bg-lime-50", border: "border-lime-200", text: "text-lime-700", gradient: "from-lime-500 to-green-600", headerFrom: "from-lime-500", headerTo: "to-green-600" },
+  L: { bg: "bg-fuchsia-50", border: "border-fuchsia-200", text: "text-fuchsia-700", gradient: "from-fuchsia-500 to-pink-600", headerFrom: "from-fuchsia-500", headerTo: "to-pink-600" },
+};
+
+export { groupColors };
+
+export const tournamentInfo = {
+  name: "FIFA World Cup 2026",
+  host: "Estados Unidos • México • Canadá",
+  startDate: "11 de Junio, 2026",
+  finalDate: "19 de Julio, 2026",
+  totalTeams: 48,
+  totalGroups: 12,
+  totalMatches: 104,
+  venues: 16,
+};
+
 export const groups: Group[] = [
   {
     id: "A",
     name: "Grupo A",
-    color: "text-orange-700",
-    bgColor: "bg-orange-50",
-    borderColor: "border-orange-300",
-    teams: ["Italia", "México", "Costa Rica", "Chile"].map(makeTeam),
+    teams: [t("MEX"), t("RSA"), t("KOR"), t("CZE")],
+    matches: [
+      { id: 1, group: "A", matchday: 1, home: t("MEX"), away: t("RSA"), date: "11 Jun", time: "19:00", venue: "Mexico City Stadium" },
+      { id: 2, group: "A", matchday: 1, home: t("KOR"), away: t("CZE"), date: "12 Jun", time: "02:00", venue: "Estadio Guadalajara" },
+      { id: 25, group: "A", matchday: 2, home: t("CZE"), away: t("RSA"), date: "18 Jun", time: "16:00", venue: "Atlanta Stadium" },
+      { id: 26, group: "A", matchday: 2, home: t("MEX"), away: t("KOR"), date: "19 Jun", time: "19:00", venue: "Estadio Guadalajara" },
+      { id: 49, group: "A", matchday: 3, home: t("CZE"), away: t("MEX"), date: "25 Jun", time: "01:00", venue: "Mexico City Stadium" },
+      { id: 50, group: "A", matchday: 3, home: t("RSA"), away: t("KOR"), date: "25 Jun", time: "01:00", venue: "Estadio Monterrey" },
+    ],
   },
   {
     id: "B",
     name: "Grupo B",
-    color: "text-emerald-700",
-    bgColor: "bg-emerald-50",
-    borderColor: "border-emerald-300",
-    teams: ["Canadá", "Catar", "Suiza", "Ecuador"].map(makeTeam),
+    teams: [t("CAN"), t("BIH"), t("QAT"), t("SUI")],
+    matches: [
+      { id: 3, group: "B", matchday: 1, home: t("CAN"), away: t("BIH"), date: "12 Jun", time: "19:00", venue: "Toronto Stadium" },
+      { id: 5, group: "B", matchday: 1, home: t("QAT"), away: t("SUI"), date: "13 Jun", time: "19:00", venue: "San Francisco Bay Area Stadium" },
+      { id: 27, group: "B", matchday: 2, home: t("SUI"), away: t("BIH"), date: "18 Jun", time: "19:00", venue: "Los Angeles Stadium" },
+      { id: 28, group: "B", matchday: 2, home: t("CAN"), away: t("QAT"), date: "18 Jun", time: "22:00", venue: "BC Place Vancouver" },
+      { id: 51, group: "B", matchday: 3, home: t("SUI"), away: t("CAN"), date: "24 Jun", time: "19:00", venue: "BC Place Vancouver" },
+      { id: 52, group: "B", matchday: 3, home: t("BIH"), away: t("QAT"), date: "24 Jun", time: "19:00", venue: "Seattle Stadium" },
+    ],
   },
   {
     id: "C",
     name: "Grupo C",
-    color: "text-red-700",
-    bgColor: "bg-red-50",
-    borderColor: "border-red-300",
-    teams: ["Brasil", "Haití", "Rusia", "Australia"].map(makeTeam),
+    teams: [t("BRA"), t("MAR"), t("HAI"), t("SCO")],
+    matches: [
+      { id: 6, group: "C", matchday: 1, home: t("BRA"), away: t("MAR"), date: "13 Jun", time: "22:00", venue: "New York New Jersey Stadium" },
+      { id: 7, group: "C", matchday: 1, home: t("HAI"), away: t("SCO"), date: "14 Jun", time: "01:00", venue: "Boston Stadium" },
+      { id: 29, group: "C", matchday: 2, home: t("SCO"), away: t("MAR"), date: "19 Jun", time: "22:00", venue: "Boston Stadium" },
+      { id: 30, group: "C", matchday: 2, home: t("BRA"), away: t("HAI"), date: "20 Jun", time: "00:30", venue: "Philadelphia Stadium" },
+      { id: 53, group: "C", matchday: 3, home: t("MAR"), away: t("HAI"), date: "24 Jun", time: "22:00", venue: "Atlanta Stadium" },
+      { id: 54, group: "C", matchday: 3, home: t("SCO"), away: t("BRA"), date: "24 Jun", time: "22:00", venue: "Miami Stadium" },
+    ],
   },
   {
     id: "D",
     name: "Grupo D",
-    color: "text-purple-700",
-    bgColor: "bg-purple-50",
-    borderColor: "border-purple-300",
-    teams: ["Estados Unidos", "Países Bajos", "Túnez", "Argentina"].map(makeTeam),
+    teams: [t("USA"), t("PAR"), t("AUS"), t("TUR")],
+    matches: [
+      { id: 4, group: "D", matchday: 1, home: t("USA"), away: t("PAR"), date: "13 Jun", time: "01:00", venue: "Los Angeles Stadium" },
+      { id: 8, group: "D", matchday: 1, home: t("AUS"), away: t("TUR"), date: "14 Jun", time: "04:00", venue: "BC Place Vancouver" },
+      { id: 31, group: "D", matchday: 2, home: t("USA"), away: t("AUS"), date: "19 Jun", time: "19:00", venue: "Seattle Stadium" },
+      { id: 32, group: "D", matchday: 2, home: t("TUR"), away: t("PAR"), date: "20 Jun", time: "03:00", venue: "San Francisco Bay Area Stadium" },
+      { id: 55, group: "D", matchday: 3, home: t("TUR"), away: t("USA"), date: "26 Jun", time: "02:00", venue: "Los Angeles Stadium" },
+      { id: 56, group: "D", matchday: 3, home: t("PAR"), away: t("AUS"), date: "26 Jun", time: "02:00", venue: "San Francisco Bay Area Stadium" },
+    ],
   },
   {
     id: "E",
     name: "Grupo E",
-    color: "text-slate-700",
-    bgColor: "bg-slate-50",
-    borderColor: "border-slate-300",
-    teams: ["Alemania", "Costa de Marfil", "Turquía", "Camerún"].map(makeTeam),
+    teams: [t("GER"), t("CUW"), t("CIV"), t("ECU")],
+    matches: [
+      { id: 9, group: "E", matchday: 1, home: t("GER"), away: t("CUW"), date: "14 Jun", time: "17:00", venue: "Houston Stadium" },
+      { id: 11, group: "E", matchday: 1, home: t("CIV"), away: t("ECU"), date: "14 Jun", time: "23:00", venue: "Philadelphia Stadium" },
+      { id: 33, group: "E", matchday: 2, home: t("GER"), away: t("CIV"), date: "20 Jun", time: "20:00", venue: "Toronto Stadium" },
+      { id: 34, group: "E", matchday: 2, home: t("ECU"), away: t("CUW"), date: "21 Jun", time: "00:00", venue: "Kansas City Stadium" },
+      { id: 57, group: "E", matchday: 3, home: t("ECU"), away: t("GER"), date: "25 Jun", time: "20:00", venue: "New York New Jersey Stadium" },
+      { id: 58, group: "E", matchday: 3, home: t("CUW"), away: t("CIV"), date: "25 Jun", time: "20:00", venue: "Philadelphia Stadium" },
+    ],
   },
   {
     id: "F",
     name: "Grupo F",
-    color: "text-amber-700",
-    bgColor: "bg-amber-50",
-    borderColor: "border-amber-300",
-    teams: ["Suecia", "Tailandia", "Vietnam", "Irán"].map(makeTeam),
+    teams: [t("NED"), t("JAP"), t("SWE"), t("TUN")],
+    matches: [
+      { id: 10, group: "F", matchday: 1, home: t("NED"), away: t("JAP"), date: "14 Jun", time: "20:00", venue: "Dallas Stadium" },
+      { id: 12, group: "F", matchday: 1, home: t("SWE"), away: t("TUN"), date: "15 Jun", time: "02:00", venue: "Estadio Monterrey" },
+      { id: 35, group: "F", matchday: 2, home: t("NED"), away: t("SWE"), date: "20 Jun", time: "17:00", venue: "Houston Stadium" },
+      { id: 36, group: "F", matchday: 2, home: t("TUN"), away: t("JAP"), date: "21 Jun", time: "04:00", venue: "Estadio Monterrey" },
+      { id: 59, group: "F", matchday: 3, home: t("TUN"), away: t("NED"), date: "25 Jun", time: "23:00", venue: "Kansas City Stadium" },
+      { id: 60, group: "F", matchday: 3, home: t("JAP"), away: t("SWE"), date: "25 Jun", time: "23:00", venue: "Dallas Stadium" },
+    ],
   },
   {
     id: "G",
     name: "Grupo G",
-    color: "text-pink-700",
-    bgColor: "bg-pink-50",
-    borderColor: "border-pink-300",
-    teams: ["Bélgica", "Croacia", "Nueva Zelanda", "Cabo Verde"].map(makeTeam),
+    teams: [t("BEL"), t("EGY"), t("IRN"), t("NZL")],
+    matches: [
+      { id: 14, group: "G", matchday: 1, home: t("BEL"), away: t("EGY"), date: "15 Jun", time: "19:00", venue: "Seattle Stadium" },
+      { id: 15, group: "G", matchday: 1, home: t("IRN"), away: t("NZL"), date: "16 Jun", time: "01:00", venue: "Los Angeles Stadium" },
+      { id: 37, group: "G", matchday: 2, home: t("BEL"), away: t("IRN"), date: "21 Jun", time: "19:00", venue: "Los Angeles Stadium" },
+      { id: 38, group: "G", matchday: 2, home: t("NZL"), away: t("EGY"), date: "22 Jun", time: "01:00", venue: "BC Place Vancouver" },
+      { id: 61, group: "G", matchday: 3, home: t("EGY"), away: t("IRN"), date: "27 Jun", time: "03:00", venue: "Seattle Stadium" },
+      { id: 62, group: "G", matchday: 3, home: t("NZL"), away: t("BEL"), date: "27 Jun", time: "03:00", venue: "BC Place Vancouver" },
+    ],
   },
   {
     id: "H",
     name: "Grupo H",
-    color: "text-sky-700",
-    bgColor: "bg-sky-50",
-    borderColor: "border-sky-300",
-    teams: ["Francia", "Arabia Saudita", "Noruega", "Sudáfrica"].map(makeTeam),
+    teams: [t("ESP"), t("CPV"), t("KSA"), t("URU")],
+    matches: [
+      { id: 13, group: "H", matchday: 1, home: t("ESP"), away: t("CPV"), date: "15 Jun", time: "16:00", venue: "Atlanta Stadium" },
+      { id: 16, group: "H", matchday: 1, home: t("KSA"), away: t("URU"), date: "15 Jun", time: "22:00", venue: "Miami Stadium" },
+      { id: 39, group: "H", matchday: 2, home: t("ESP"), away: t("KSA"), date: "21 Jun", time: "16:00", venue: "Atlanta Stadium" },
+      { id: 40, group: "H", matchday: 2, home: t("URU"), away: t("CPV"), date: "21 Jun", time: "22:00", venue: "Miami Stadium" },
+      { id: 63, group: "H", matchday: 3, home: t("URU"), away: t("ESP"), date: "27 Jun", time: "00:00", venue: "Estadio Guadalajara" },
+      { id: 64, group: "H", matchday: 3, home: t("CPV"), away: t("KSA"), date: "27 Jun", time: "00:00", venue: "Houston Stadium" },
+    ],
   },
   {
     id: "I",
     name: "Grupo I",
-    color: "text-blue-700",
-    bgColor: "bg-blue-50",
-    borderColor: "border-blue-300",
-    teams: ["Inglaterra", "Egipto", "Colombia", "Ghana"].map(makeTeam),
+    teams: [t("FRA"), t("SEN"), t("IRQ"), t("NOR")],
+    matches: [
+      { id: 17, group: "I", matchday: 1, home: t("FRA"), away: t("SEN"), date: "16 Jun", time: "19:00", venue: "New York New Jersey Stadium" },
+      { id: 18, group: "I", matchday: 1, home: t("IRQ"), away: t("NOR"), date: "16 Jun", time: "22:00", venue: "Boston Stadium" },
+      { id: 41, group: "I", matchday: 2, home: t("FRA"), away: t("IRQ"), date: "22 Jun", time: "21:00", venue: "Philadelphia Stadium" },
+      { id: 42, group: "I", matchday: 2, home: t("NOR"), away: t("SEN"), date: "23 Jun", time: "00:00", venue: "New York New Jersey Stadium" },
+      { id: 65, group: "I", matchday: 3, home: t("NOR"), away: t("FRA"), date: "26 Jun", time: "19:00", venue: "Boston Stadium" },
+      { id: 66, group: "I", matchday: 3, home: t("SEN"), away: t("IRQ"), date: "26 Jun", time: "19:00", venue: "Toronto Stadium" },
+    ],
   },
   {
     id: "J",
     name: "Grupo J",
-    color: "text-teal-700",
-    bgColor: "bg-teal-50",
-    borderColor: "border-teal-300",
-    teams: ["Japón", "Senegal", "Panamá", "Polonia"].map(makeTeam),
+    teams: [t("ARG"), t("ALG"), t("AUT"), t("JOR")],
+    matches: [
+      { id: 19, group: "J", matchday: 1, home: t("ARG"), away: t("ALG"), date: "17 Jun", time: "01:00", venue: "Kansas City Stadium" },
+      { id: 20, group: "J", matchday: 1, home: t("AUT"), away: t("JOR"), date: "17 Jun", time: "04:00", venue: "San Francisco Bay Area Stadium" },
+      { id: 43, group: "J", matchday: 2, home: t("ARG"), away: t("AUT"), date: "22 Jun", time: "17:00", venue: "Dallas Stadium" },
+      { id: 44, group: "J", matchday: 2, home: t("JOR"), away: t("ALG"), date: "23 Jun", time: "03:00", venue: "San Francisco Bay Area Stadium" },
+      { id: 67, group: "J", matchday: 3, home: t("JOR"), away: t("ARG"), date: "28 Jun", time: "02:00", venue: "Dallas Stadium" },
+      { id: 68, group: "J", matchday: 3, home: t("ALG"), away: t("AUT"), date: "28 Jun", time: "02:00", venue: "Kansas City Stadium" },
+    ],
   },
   {
     id: "K",
     name: "Grupo K",
-    color: "text-rose-700",
-    bgColor: "bg-rose-50",
-    borderColor: "border-rose-300",
-    teams: ["España", "Portugal", "Bosnia y Herzegovina", "Congo DRC"].map(makeTeam),
+    teams: [t("POR"), t("COD"), t("UZB"), t("COL")],
+    matches: [
+      { id: 21, group: "K", matchday: 1, home: t("POR"), away: t("COD"), date: "17 Jun", time: "17:00", venue: "Houston Stadium" },
+      { id: 24, group: "K", matchday: 1, home: t("UZB"), away: t("COL"), date: "18 Jun", time: "02:00", venue: "Mexico City Stadium" },
+      { id: 45, group: "K", matchday: 2, home: t("POR"), away: t("UZB"), date: "23 Jun", time: "17:00", venue: "Houston Stadium" },
+      { id: 48, group: "K", matchday: 2, home: t("COL"), away: t("COD"), date: "24 Jun", time: "02:00", venue: "Estadio Guadalajara" },
+      { id: 69, group: "K", matchday: 3, home: t("COL"), away: t("POR"), date: "27 Jun", time: "23:30", venue: "Miami Stadium" },
+      { id: 70, group: "K", matchday: 3, home: t("COD"), away: t("UZB"), date: "27 Jun", time: "23:30", venue: "Atlanta Stadium" },
+    ],
   },
   {
     id: "L",
     name: "Grupo L",
-    color: "text-cyan-700",
-    bgColor: "bg-cyan-50",
-    borderColor: "border-cyan-300",
-    teams: ["Paraguay", "Angola", "Corea del Sur", "Marruecos"].map(makeTeam),
+    teams: [t("ENG"), t("CRO"), t("GHA"), t("PAN")],
+    matches: [
+      { id: 22, group: "L", matchday: 1, home: t("ENG"), away: t("CRO"), date: "17 Jun", time: "20:00", venue: "Dallas Stadium" },
+      { id: 23, group: "L", matchday: 1, home: t("GHA"), away: t("PAN"), date: "17 Jun", time: "23:00", venue: "Toronto Stadium" },
+      { id: 46, group: "L", matchday: 2, home: t("ENG"), away: t("GHA"), date: "23 Jun", time: "20:00", venue: "Boston Stadium" },
+      { id: 47, group: "L", matchday: 2, home: t("PAN"), away: t("CRO"), date: "23 Jun", time: "23:00", venue: "Toronto Stadium" },
+      { id: 71, group: "L", matchday: 3, home: t("PAN"), away: t("ENG"), date: "27 Jun", time: "21:00", venue: "New York New Jersey Stadium" },
+      { id: 72, group: "L", matchday: 3, home: t("CRO"), away: t("GHA"), date: "27 Jun", time: "21:00", venue: "Philadelphia Stadium" },
+    ],
   },
 ];
 
-// Best third-place teams
-export const mejoresTerceros: Team[] = [
-  "Corea del Sur",
-  "Catar",
-  "Haití",
-  "Australia",
-  "Costa de Marfil",
-  "Sudáfrica",
-  "Croacia",
-  "Arabia Saudita",
-].map(makeTeam);
-
-// Knockout rounds
-export const octavos: Match[] = [
-  { id: 1, home: makeTeam("México"), away: makeTeam("Japón"), date: "25 Jul", time: "14:00", venue: "Estadio Nacional" },
-  { id: 2, home: makeTeam("Brasil"), away: makeTeam("Paraguay"), date: "25 Jul", time: "17:00", venue: "Estadio Central" },
-  { id: 3, home: makeTeam("Bélgica"), away: makeTeam("Croacia"), date: "26 Jul", time: "14:00", venue: "Estadio Norte" },
-  { id: 4, home: makeTeam("Francia"), away: makeTeam("Corea del Sur"), date: "26 Jul", time: "17:00", venue: "Estadio Sur" },
-  { id: 5, home: makeTeam("Alemania"), away: makeTeam("Bosnia y Herzegovina"), date: "27 Jul", time: "14:00", venue: "Estadio Oriental" },
-  { id: 6, home: makeTeam("Portugal"), away: makeTeam("Cabo Verde"), date: "27 Jul", time: "17:00", venue: "Estadio Occidental" },
-  { id: 7, home: makeTeam("Camerún"), away: makeTeam("Catar"), date: "28 Jul", time: "14:00", venue: "Estadio Nacional" },
-  { id: 8, home: makeTeam("Angola"), away: makeTeam("Haití"), date: "28 Jul", time: "17:00", venue: "Estadio Central" },
-  { id: 9, home: makeTeam("Polonia"), away: makeTeam("Sudáfrica"), date: "29 Jul", time: "14:00", venue: "Estadio Norte" },
-  { id: 10, home: makeTeam("Estados Unidos"), away: makeTeam("Marruecos"), date: "29 Jul", time: "17:00", venue: "Estadio Sur" },
-  { id: 11, home: makeTeam("Inglaterra"), away: makeTeam("Egipto"), date: "30 Jul", time: "14:00", venue: "Estadio Oriental" },
-  { id: 12, home: makeTeam("España"), away: makeTeam("Australia"), date: "30 Jul", time: "17:00", venue: "Estadio Occidental" },
-  { id: 13, home: makeTeam("Argentina"), away: makeTeam("Costa de Marfil"), date: "31 Jul", time: "14:00", venue: "Estadio Nacional" },
-  { id: 14, home: makeTeam("Senegal"), away: makeTeam("Suecia"), date: "31 Jul", time: "17:00", venue: "Estadio Central" },
-  { id: 15, home: makeTeam("Congo DRC"), away: makeTeam("Irán"), date: "1 Ago", time: "14:00", venue: "Estadio Norte" },
-  { id: 16, home: makeTeam("Canadá"), away: makeTeam("Arabia Saudita"), date: "1 Ago", time: "17:00", venue: "Estadio Sur" },
+export const knockoutSchedule = [
+  { round: "Dieciseisavos de Final", shortRound: "Dieciseisavos", dates: "28 Jun - 4 Jul", matches: 16, desc: "1° y 2° de cada grupo + 8 mejores terceros" },
+  { round: "Octavos de Final", shortRound: "Octavos", dates: "4 - 7 Jul", matches: 8, desc: "Ganadores de Dieciseisavos" },
+  { round: "Cuartos de Final", shortRound: "Cuartos", dates: "9 - 12 Jul", matches: 4, venues: "Boston, LA, Miami, Kansas City" },
+  { round: "Semifinales", shortRound: "Semifinales", dates: "14 - 15 Jul", matches: 2, venues: "Dallas, Atlanta" },
+  { round: "3er y 4to Puesto", shortRound: "3er Puesto", dates: "18 Jul", matches: 1, venue: "Miami Stadium" },
+  { round: "Final", shortRound: "Final", dates: "19 Jul", matches: 1, venue: "New York New Jersey Stadium" },
 ];
 
-export const cuartos: Match[] = [
-  { id: 17, home: makeTeam("México"), away: makeTeam("Brasil"), date: "3 Ago", time: "14:00", venue: "Estadio Nacional" },
-  { id: 18, home: makeTeam("Bélgica"), away: makeTeam("Francia"), date: "3 Ago", time: "17:00", venue: "Estadio Central" },
-  { id: 19, home: makeTeam("Alemania"), away: makeTeam("Portugal"), date: "4 Ago", time: "14:00", venue: "Estadio Norte" },
-  { id: 20, home: makeTeam("Camerún"), away: makeTeam("Angola"), date: "4 Ago", time: "17:00", venue: "Estadio Sur" },
-  { id: 21, home: makeTeam("Polonia"), away: makeTeam("Estados Unidos"), date: "5 Ago", time: "14:00", venue: "Estadio Oriental" },
-  { id: 22, home: makeTeam("Inglaterra"), away: makeTeam("España"), date: "5 Ago", time: "17:00", venue: "Estadio Occidental" },
-  { id: 23, home: makeTeam("Argentina"), away: makeTeam("Senegal"), date: "6 Ago", time: "14:00", venue: "Estadio Nacional" },
-  { id: 24, home: makeTeam("Congo DRC"), away: makeTeam("Canadá"), date: "6 Ago", time: "17:00", venue: "Estadio Central" },
+export const venues = [
+  { name: "Mexico City Stadium", city: "Ciudad de México", country: "México" },
+  { name: "Estadio Guadalajara", city: "Guadalajara", country: "México" },
+  { name: "Estadio Monterrey", city: "Monterrey", country: "México" },
+  { name: "Toronto Stadium", city: "Toronto", country: "Canadá" },
+  { name: "BC Place Vancouver", city: "Vancouver", country: "Canadá" },
+  { name: "Los Angeles Stadium", city: "Los Ángeles", country: "EE.UU." },
+  { name: "San Francisco Bay Area Stadium", city: "San Francisco", country: "EE.UU." },
+  { name: "Seattle Stadium", city: "Seattle", country: "EE.UU." },
+  { name: "Dallas Stadium", city: "Dallas", country: "EE.UU." },
+  { name: "Houston Stadium", city: "Houston", country: "EE.UU." },
+  { name: "Kansas City Stadium", city: "Kansas City", country: "EE.UU." },
+  { name: "Atlanta Stadium", city: "Atlanta", country: "EE.UU." },
+  { name: "Miami Stadium", city: "Miami", country: "EE.UU." },
+  { name: "Philadelphia Stadium", city: "Filadelfia", country: "EE.UU." },
+  { name: "Boston Stadium", city: "Boston", country: "EE.UU." },
+  { name: "New York New Jersey Stadium", city: "Nueva York", country: "EE.UU." },
 ];
-
-export const semifinales: Match[] = [
-  { id: 25, home: makeTeam("México"), away: makeTeam("Bélgica"), date: "8 Ago", time: "14:00", venue: "Estadio Nacional" },
-  { id: 26, home: makeTeam("Alemania"), away: makeTeam("Camerún"), date: "8 Ago", time: "17:00", venue: "Estadio Central" },
-  { id: 27, home: makeTeam("Inglaterra"), away: makeTeam("Polonia"), date: "9 Ago", time: "14:00", venue: "Estadio Norte" },
-  { id: 28, home: makeTeam("Argentina"), away: makeTeam("Congo DRC"), date: "9 Ago", time: "17:00", venue: "Estadio Sur" },
-];
-
-export const semifinalFinal: Match[] = [
-  { id: 29, home: makeTeam("México"), away: makeTeam("Alemania"), date: "12 Ago", time: "14:00", venue: "Estadio Nacional" },
-  { id: 30, home: makeTeam("Inglaterra"), away: makeTeam("Argentina"), date: "12 Ago", time: "17:00", venue: "Estadio Central" },
-];
-
-export const final_: Match = {
-  id: 31,
-  home: makeTeam("México"),
-  away: makeTeam("Inglaterra"),
-  date: "15 Ago",
-  time: "16:00",
-  venue: "Estadio Nacional",
-};
-
-export const tercerPuesto: Match = {
-  id: 32,
-  home: makeTeam("Alemania"),
-  away: makeTeam("Argentina"),
-  date: "14 Ago",
-  time: "16:00",
-  venue: "Estadio Central",
-};
-
-export const knockoutRounds: KnockoutRound[] = [
-  { id: "octavos", name: "Octavos de Final", shortName: "Octavos", matches: octavos },
-  { id: "cuartos", name: "Cuartos de Final", shortName: "Cuartos", matches: cuartos },
-  { id: "semifinales", name: "Semifinales", shortName: "Semi", matches: semifinales },
-  { id: "semifinal-final", name: "Semifinal Final", shortName: "SF Final", matches: semifinalFinal },
-];
-
-export const tournamentInfo = {
-  name: "Copa Confederación de Selecciones",
-  date: "25 de Julio, 2025",
-  totalGroups: 12,
-  totalMatches: 104,
-  totalStages: 16,
-  teams: 48,
-};
