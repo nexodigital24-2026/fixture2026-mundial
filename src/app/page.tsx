@@ -7,7 +7,7 @@ import {
   Zap, ArrowRight, Shield, Star, Users, Landmark,
   RotateCcw, Play, Image as ImageIcon,
   LogIn, LogOut, UserPlus, Settings, Trash2, Save, Check,
-  Loader2, AlertCircle, Eye, EyeOff, Crown, User,
+  Loader2, AlertCircle, Crown, User,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   groups,
@@ -30,6 +30,9 @@ import {
   type Team,
   type BracketMatch,
 } from '@/lib/tournament-data'
+import Header from '@/components/mundial/Header'
+import Footer from '@/components/mundial/Footer'
+import ConfigPanel from '@/components/mundial/ConfigPanel'
 
 // ==================== Auth Context ====================
 import { signIn, signOut } from 'next-auth/react'
@@ -45,9 +48,7 @@ function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    checkSession()
-  }, [])
+  useEffect(() => { checkSession() }, [])
 
   const checkSession = async () => {
     try {
@@ -63,79 +64,89 @@ function useAuth() {
           })
         }
       }
-    } catch {
-      // Not authenticated
-    } finally {
-      setLoading(false)
-    }
+    } catch { /* Not authenticated */ } finally { setLoading(false) }
   }
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      })
-      if (result?.ok) {
-        await checkSession()
-        return { success: true }
-      }
+      const result = await signIn('credentials', { email, password, redirect: false })
+      if (result?.ok) { await checkSession(); return { success: true } }
       return { success: false, error: result?.error || 'Email o contraseña incorrectos' }
-    } catch {
-      return { success: false, error: 'Error de conexión' }
-    }
+    } catch { return { success: false, error: 'Error de conexión' } }
   }
 
   const register = async (name: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
       })
       const data = await res.json()
-      if (res.ok) {
-        // Auto login after register
-        return login(email, password)
-      }
+      if (res.ok) return login(email, password)
       return { success: false, error: data.error || 'Error al registrarse' }
-    } catch {
-      return { success: false, error: 'Error de conexión' }
-    }
+    } catch { return { success: false, error: 'Error de conexión' } }
   }
 
-  const logout = async () => {
-    await signOut({ redirect: false })
-    setUser(null)
-  }
+  const logout = async () => { await signOut({ redirect: false }); setUser(null) }
 
   return { user, loading, login, register, logout, isAdmin: user?.role === 'admin' }
 }
 
-// ==================== Simulation Persistence ====================
-interface SimData {
-  matchId: number
-  matchType: string
-  homeScore: number
-  awayScore: number
+// ==================== Config Hook ====================
+const DEFAULT_CONFIG: Record<string, string> = {
+  siteName: 'Mundial 2026',
+  siteDescription: 'Simulador interactivo del FIFA World Cup 2026. Cuenta regresiva, fase de grupos, llaves eliminatorias y sedes.',
+  accentColor: 'sky',
+  showCountdown: 'true',
+  showStadiums: 'true',
+  showBracket: 'true',
+  showGroups: 'true',
+  maxGoals: '9',
+  countdownDate: '2026-06-11T18:00:00Z',
+  heroTitle: 'El Mundial comienza en:',
+  heroStarted: '¡El Mundial ha comenzado!',
+  footerText: '',
+  enableRegistration: 'true',
+  enableAutoSave: 'true',
+  autoSaveDelay: '800',
 }
 
-function useSimulationPersistence(userId: string | null) {
+function useConfig() {
+  const [configs, setConfigs] = useState<Record<string, string>>(DEFAULT_CONFIG)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch('/api/admin/config')
+        if (res.ok) {
+          const data = await res.json()
+          setConfigs((prev) => ({ ...prev, ...data }))
+        }
+      } catch { /* ignore */ } finally { setLoaded(true) }
+    }
+    load()
+  }, [])
+
+  const updateConfigs = useCallback((newConfigs: Record<string, string>) => {
+    setConfigs((prev) => ({ ...prev, ...newConfigs }))
+  }, [])
+
+  return { configs, updateConfigs, loaded }
+}
+
+// ==================== Simulation Persistence ====================
+interface SimData { matchId: number; matchType: string; homeScore: number; awayScore: number }
+
+function useSimulationPersistence(userId: string | null, autoSaveEnabled: boolean, autoSaveDelay: number) {
   const [scores, setScores] = useState<ScoreState>({})
   const [knockoutScores, setKnockoutScores] = useState<ScoreState>({})
   const [isLoaded, setIsLoaded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Load saved simulations
   useEffect(() => {
-    if (!userId) {
-      setScores({})
-      setKnockoutScores({})
-      setIsLoaded(true)
-      return
-    }
+    if (!userId) { setScores({}); setKnockoutScores({}); setIsLoaded(true); return }
     const loadSimulations = async () => {
       try {
         const res = await fetch('/api/simulations')
@@ -144,47 +155,31 @@ function useSimulationPersistence(userId: string | null) {
           const newScores: ScoreState = {}
           const newKnockout: ScoreState = {}
           for (const sim of data) {
-            if (sim.matchType === 'group') {
-              newScores[sim.matchId] = { home: sim.homeScore, away: sim.awayScore }
-            } else {
-              newKnockout[sim.matchId] = { home: sim.homeScore, away: sim.awayScore }
-            }
+            if (sim.matchType === 'group') { newScores[sim.matchId] = { home: sim.homeScore, away: sim.awayScore } }
+            else { newKnockout[sim.matchId] = { home: sim.homeScore, away: sim.awayScore } }
           }
-          setScores(newScores)
-          setKnockoutScores(newKnockout)
+          setScores(newScores); setKnockoutScores(newKnockout)
         }
-      } catch {
-        // ignore
-      } finally {
-        setIsLoaded(true)
-      }
+      } catch { /* ignore */ } finally { setIsLoaded(true) }
     }
     loadSimulations()
   }, [userId])
 
-  // Debounced save
   const saveToServer = useCallback(async (matchId: number, matchType: string, homeScore: number, awayScore: number) => {
     if (!userId) return
     try {
       await fetch('/api/simulations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ matchId, matchType, homeScore, awayScore }),
       })
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, [userId])
 
   const onScoreChange = useCallback((id: number, side: 'home' | 'away', val: number) => {
     setScores((prev) => {
       const current = prev[id] ?? { home: -1, away: -1 }
       const updated = { ...current, [side]: val }
-      if (updated.home === -1 && updated.away === -1) {
-        const next = { ...prev }
-        delete next[id]
-        return next
-      }
+      if (updated.home === -1 && updated.away === -1) { const next = { ...prev }; delete next[id]; return next }
       return { ...prev, [id]: updated }
     })
   }, [])
@@ -193,75 +188,56 @@ function useSimulationPersistence(userId: string | null) {
     setKnockoutScores((prev) => {
       const current = prev[id] ?? { home: -1, away: -1 }
       const updated = { ...current, [side]: val }
-      if (updated.home === -1 && updated.away === -1) {
-        const next = { ...prev }
-        delete next[id]
-        return next
-      }
+      if (updated.home === -1 && updated.away === -1) { const next = { ...prev }; delete next[id]; return next }
       return { ...prev, [id]: updated }
     })
   }, [])
 
-  // Auto-save effect
   useEffect(() => {
-    if (!userId || !isLoaded) return
+    if (!userId || !isLoaded || !autoSaveEnabled) return
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
     saveTimeoutRef.current = setTimeout(async () => {
       setIsSaving(true)
       const saves: Promise<void>[] = []
-      for (const [id, s] of Object.entries(scores)) {
-        if (s.home >= 0 || s.away >= 0) {
-          saves.push(saveToServer(Number(id), 'group', s.home, s.away))
-        }
-      }
-      for (const [id, s] of Object.entries(knockoutScores)) {
-        if (s.home >= 0 || s.away >= 0) {
-          saves.push(saveToServer(Number(id), 'knockout', s.home, s.away))
-        }
-      }
-      await Promise.all(saves)
-      setIsSaving(false)
-    }, 800)
+      for (const [id, s] of Object.entries(scores)) { if (s.home >= 0 || s.away >= 0) saves.push(saveToServer(Number(id), 'group', s.home, s.away)) }
+      for (const [id, s] of Object.entries(knockoutScores)) { if (s.home >= 0 || s.away >= 0) saves.push(saveToServer(Number(id), 'knockout', s.home, s.away)) }
+      await Promise.all(saves); setIsSaving(false)
+    }, autoSaveDelay)
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current) }
-  }, [scores, knockoutScores, userId, isLoaded, saveToServer])
+  }, [scores, knockoutScores, userId, isLoaded, saveToServer, autoSaveEnabled, autoSaveDelay])
 
   const resetScores = useCallback(async () => {
-    setScores({})
-    setKnockoutScores({})
-    if (userId) {
-      try {
-        await fetch('/api/simulations', { method: 'DELETE' })
-      } catch {
-        // ignore
-      }
-    }
+    setScores({}); setKnockoutScores({})
+    if (userId) { try { await fetch('/api/simulations', { method: 'DELETE' }) } catch { /* ignore */ } }
   }, [userId])
 
   return { scores, knockoutScores, onScoreChange, onKnockoutScoreChange, resetScores, isLoaded, isSaving }
 }
 
 // ==================== Countdown Timer ====================
-const WORLD_CUP_START = new Date('2026-06-11T18:00:00Z').getTime()
+function useCountdownDate(configDate: string) {
+  return useMemo(() => new Date(configDate).getTime(), [configDate])
+}
 
 interface TimeLeft { days: number; hours: number; minutes: number; seconds: number; total: number }
 
-function useCountLeft(): TimeLeft {
+function useCountLeft(targetDate: number): TimeLeft {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => {
-    const diff = Math.max(0, WORLD_CUP_START - Date.now())
+    const diff = Math.max(0, targetDate - Date.now())
     return { days: Math.floor(diff / 864e5), hours: Math.floor((diff / 36e5) % 24), minutes: Math.floor((diff / 6e4) % 60), seconds: Math.floor((diff / 1e3) % 60), total: diff }
   })
   useEffect(() => {
     const id = setInterval(() => {
-      const diff = Math.max(0, WORLD_CUP_START - Date.now())
+      const diff = Math.max(0, targetDate - Date.now())
       setTimeLeft({ days: Math.floor(diff / 864e5), hours: Math.floor((diff / 36e5) % 24), minutes: Math.floor((diff / 6e4) % 60), seconds: Math.floor((diff / 1e3) % 60), total: diff })
     }, 1000)
     return () => clearInterval(id)
-  }, [])
+  }, [targetDate])
   return timeLeft
 }
 
-function CountdownTimer() {
-  const t = useCountLeft()
+function CountdownTimer({ heroTitle, heroStarted }: { heroTitle: string; heroStarted: string }) {
+  const t = useCountLeft(useCountdownDate('2026-06-11T18:00:00Z'))
   return (
     <div className="relative rounded-2xl overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-r from-[#0a1628] via-[#0f2847] to-[#0a1628]" />
@@ -280,7 +256,7 @@ function CountdownTimer() {
           <div className="flex-1 text-center sm:text-left">
             <motion.p initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
               className="text-sm sm:text-lg font-bold text-white/90 mb-3 sm:mb-4 tracking-wide uppercase">
-              {t.total <= 0 ? '¡El Mundial ha comenzado!' : 'El Mundial comienza en:'}
+              {t.total <= 0 ? (heroStarted || '¡El Mundial ha comenzado!') : (heroTitle || 'El Mundial comienza en:')}
             </motion.p>
             <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-3">
               {[{ value: t.days, label: 'DÍAS' }, { value: t.hours, label: 'HS' }, { value: t.minutes, label: 'MIN' }, { value: t.seconds, label: 'SEG' }].map((u, i) => (
@@ -333,9 +309,9 @@ function computeStandings(group: Group, scores: ScoreState): Standing[] {
   return [...map.values()].sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf)
 }
 
-function ScoreInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function ScoreInput({ value, onChange, maxGoals }: { value: number; onChange: (v: number) => void; maxGoals: number }) {
   return (
-    <button onClick={() => onChange(value < 9 ? value + 1 : -1)}
+    <button onClick={() => onChange(value < maxGoals ? value + 1 : -1)}
       className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg font-black text-sm flex items-center justify-center transition-all duration-150 select-none
         ${value >= 0 ? 'bg-gray-900 text-white shadow-md hover:bg-gray-800 active:scale-95' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-95'}`}>
       {value >= 0 ? value : '–'}
@@ -343,7 +319,7 @@ function ScoreInput({ value, onChange }: { value: number; onChange: (v: number) 
   )
 }
 
-function SimulatorMatch({ match, scores, onScoreChange, index }: { match: GroupMatch; scores: ScoreState; onScoreChange: (id: number, side: 'home' | 'away', val: number) => void; index: number }) {
+function SimulatorMatch({ match, scores, onScoreChange, index, maxGoals }: { match: GroupMatch; scores: ScoreState; onScoreChange: (id: number, side: 'home' | 'away', val: number) => void; index: number; maxGoals: number }) {
   const s = scores[match.id]; const hasScore = s !== undefined && s.home >= 0 && s.away >= 0; const colors = groupColors[match.group]
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.02 }}
@@ -355,9 +331,9 @@ function SimulatorMatch({ match, scores, onScoreChange, index }: { match: GroupM
       <div className="flex items-center px-3 py-2 gap-2">
         <div className="flex items-center gap-1.5 flex-1 min-w-0"><span className="text-lg leading-none">{match.home.flag}</span><span className="text-xs font-bold text-gray-900 truncate">{match.home.name}</span></div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <ScoreInput value={s?.home ?? -1} onChange={(v) => onScoreChange(match.id, 'home', v)} />
+          <ScoreInput value={s?.home ?? -1} onChange={(v) => onScoreChange(match.id, 'home', v)} maxGoals={maxGoals} />
           <span className="text-xs font-black text-gray-300">-</span>
-          <ScoreInput value={s?.away ?? -1} onChange={(v) => onScoreChange(match.id, 'away', v)} />
+          <ScoreInput value={s?.away ?? -1} onChange={(v) => onScoreChange(match.id, 'away', v)} maxGoals={maxGoals} />
         </div>
         <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end"><span className="text-xs font-bold text-gray-900 truncate text-right">{match.away.name}</span><span className="text-lg leading-none">{match.away.flag}</span></div>
       </div>
@@ -385,7 +361,7 @@ function StandingsTable({ standings }: { standings: Standing[] }) {
   )
 }
 
-function GroupSimulator({ group, scores, onScoreChange, isOpen, onToggle }: { group: Group; scores: ScoreState; onScoreChange: (id: number, side: 'home' | 'away', val: number) => void; isOpen: boolean; onToggle: () => void }) {
+function GroupSimulator({ group, scores, onScoreChange, isOpen, onToggle, maxGoals }: { group: Group; scores: ScoreState; onScoreChange: (id: number, side: 'home' | 'away', val: number) => void; isOpen: boolean; onToggle: () => void; maxGoals: number }) {
   const [selectedMD, setSelectedMD] = useState(0)
   const colors = groupColors[group.id]
   const standings = useMemo(() => computeStandings(group, scores), [group, scores])
@@ -406,7 +382,7 @@ function GroupSimulator({ group, scores, onScoreChange, isOpen, onToggle }: { gr
               <div className="flex border-b border-gray-100">{[{ key: 0, label: 'Todos' }, { key: 1, label: 'F1' }, { key: 2, label: 'F2' }, { key: 3, label: 'F3' }].map((md) => (
                 <button key={md.key} onClick={() => setSelectedMD(md.key)} className={`flex-1 py-1.5 text-[11px] font-bold transition-colors ${selectedMD === md.key ? `bg-gradient-to-r ${colors.headerFrom} ${colors.headerTo} text-white` : 'text-gray-400 hover:bg-gray-50'}`}>{md.label}</button>
               ))}</div>
-              <div className="p-2.5 space-y-2">{filteredMatches.map((m, i) => <SimulatorMatch key={m.id} match={m} scores={scores} onScoreChange={onScoreChange} index={i} />)}</div>
+              <div className="p-2.5 space-y-2">{filteredMatches.map((m, i) => <SimulatorMatch key={m.id} match={m} scores={scores} onScoreChange={onScoreChange} index={i} maxGoals={maxGoals} />)}</div>
             </CardContent>
           </motion.div>
         )}</AnimatePresence>
@@ -415,7 +391,7 @@ function GroupSimulator({ group, scores, onScoreChange, isOpen, onToggle }: { gr
   )
 }
 
-function SimulatorView({ scores, onScoreChange, resetScores, isSaving, isLoggedIn }: { scores: ScoreState; onScoreChange: (id: number, s: 'home' | 'away', v: number) => void; resetScores: () => void; isSaving: boolean; isLoggedIn: boolean }) {
+function SimulatorView({ scores, onScoreChange, resetScores, isSaving, isLoggedIn, maxGoals }: { scores: ScoreState; onScoreChange: (id: number, s: 'home' | 'away', v: number) => void; resetScores: () => void; isSaving: boolean; isLoggedIn: boolean; maxGoals: number }) {
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(['A', 'B', 'C']))
   const toggleGroup = (id: string) => setOpenGroups((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const totalPlayed = Object.values(scores).filter((s) => s.home >= 0 && s.away >= 0).length
@@ -439,7 +415,7 @@ function SimulatorView({ scores, onScoreChange, resetScores, isSaving, isLoggedI
         <p className="text-xs text-amber-700"><strong>Simula el Mundial:</strong> Clic en los cuadros de goles para cargar resultados. {isLoggedIn ? 'Tus resultados se guardan automáticamente.' : 'Inicia sesión para guardar tus resultados.'}</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {groups.map((g) => <GroupSimulator key={g.id} group={g} scores={scores} onScoreChange={onScoreChange} isOpen={openGroups.has(g.id)} onToggle={() => toggleGroup(g.id)} />)}
+        {groups.map((g) => <GroupSimulator key={g.id} group={g} scores={scores} onScoreChange={onScoreChange} isOpen={openGroups.has(g.id)} onToggle={() => toggleGroup(g.id)} maxGoals={maxGoals} />)}
       </div>
     </div>
   )
@@ -531,58 +507,6 @@ function StadiumsView() {
   )
 }
 
-// ==================== Auth Dialog ====================
-function AuthDialog({ mode, onModeChange, onSuccess, loginFn, registerFn }: {
-  mode: 'login' | 'register'; onModeChange: (m: 'login' | 'register') => void; onSuccess: () => void;
-  loginFn: (e: string, p: string) => Promise<{ success: boolean; error?: string }>;
-  registerFn: (n: string, e: string, p: string) => Promise<{ success: boolean; error?: string }>;
-}) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
-  const [showPw, setShowPw] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(''); setLoading(true)
-    try {
-      if (mode === 'login') {
-        const result = await loginFn(email, password)
-        if (result.success) { onSuccess() } else { setError(result.error || 'Email o contraseña incorrectos') }
-      } else {
-        const result = await registerFn(name, email, password)
-        if (result.success) { onSuccess() } else { setError(result.error || 'Error al registrarse') }
-      }
-    } catch { setError('Error de conexión') } finally { setLoading(false) }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {mode === 'register' && (
-        <div><label className="text-xs font-bold text-gray-600 mb-1 block">Nombre</label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre" required className="h-10" /></div>
-      )}
-      <div><label className="text-xs font-bold text-gray-600 mb-1 block">Email</label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@email.com" required className="h-10" /></div>
-      <div><label className="text-xs font-bold text-gray-600 mb-1 block">Contraseña</label>
-        <div className="relative"><Input type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••" required minLength={4} className="h-10 pr-10" /><button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
-      </div>
-      {error && <div className="flex items-center gap-2 text-red-600 text-xs bg-red-50 border border-red-200 rounded-lg p-2"><AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />{error}</div>}
-      <Button type="submit" disabled={loading} className="w-full h-10 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold">
-        {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : mode === 'login' ? <LogIn className="w-4 h-4 mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-        {mode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}
-      </Button>
-      <div className="text-center text-xs text-gray-500">
-        {mode === 'login' ? <>¿No tienes cuenta? <button type="button" onClick={() => onModeChange('register')} className="text-sky-600 font-bold hover:underline">Regístrate</button></> : <>¿Ya tienes cuenta? <button type="button" onClick={() => onModeChange('login')} className="text-sky-600 font-bold hover:underline">Inicia sesión</button></>}
-      </div>
-      {mode === 'login' && (
-        <div className="text-center text-[10px] text-gray-400 mt-2 bg-gray-50 rounded-lg p-2">
-          <strong>Admin:</strong> admin@mundial2026.com / admin123
-        </div>
-      )}
-    </form>
-  )
-}
-
 // ==================== Admin Panel ====================
 interface AdminUser { id: string; name: string; email: string; role: string; createdAt: string; _count: { simulations: number } }
 
@@ -618,7 +542,6 @@ function AdminPanel() {
         <Button variant="outline" size="sm" onClick={loadUsers} className="text-xs"><RotateCcw className="w-3 h-3 mr-1" />Actualizar</Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white rounded-xl border border-gray-200 p-4 text-center"><Users className="w-5 h-5 text-sky-500 mx-auto mb-1" /><p className="text-2xl font-black text-gray-900">{users.length}</p><p className="text-xs text-gray-500">Usuarios</p></div>
         <div className="bg-white rounded-xl border border-gray-200 p-4 text-center"><Crown className="w-5 h-5 text-amber-500 mx-auto mb-1" /><p className="text-2xl font-black text-gray-900">{users.filter((u) => u.role === 'admin').length}</p><p className="text-xs text-gray-500">Admins</p></div>
@@ -626,7 +549,6 @@ function AdminPanel() {
         <div className="bg-white rounded-xl border border-gray-200 p-4 text-center"><Play className="w-5 h-5 text-violet-500 mx-auto mb-1" /><p className="text-2xl font-black text-gray-900">{users.filter((u) => u._count.simulations > 0).length}</p><p className="text-xs text-gray-500">Activos</p></div>
       </div>
 
-      {/* Users table */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100"><h3 className="font-bold text-gray-900">Usuarios Registrados</h3></div>
         {loading ? <div className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400 mx-auto" /></div> : users.length === 0 ? <div className="p-8 text-center text-gray-400">No hay usuarios</div> : (
@@ -656,17 +578,18 @@ function AdminPanel() {
 // ==================== Main Page ====================
 export default function Home() {
   const { user, loading, login, register, logout, isAdmin } = useAuth()
-  const { scores, knockoutScores, onScoreChange, onKnockoutScoreChange, resetScores, isLoaded, isSaving } = useSimulationPersistence(user?.id ?? null)
+  const { configs, updateConfigs, loaded: configLoaded } = useConfig()
+  const autoSaveEnabled = configs.enableAutoSave !== 'false'
+  const autoSaveDelay = parseInt(configs.autoSaveDelay || '800', 10)
+  const maxGoals = parseInt(configs.maxGoals || '9', 10)
+  const { scores, knockoutScores, onScoreChange, onKnockoutScoreChange, resetScores, isLoaded, isSaving } = useSimulationPersistence(user?.id ?? null, autoSaveEnabled, autoSaveDelay)
   const [activeTab, setActiveTab] = useState('simulator')
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
-  const [authOpen, setAuthOpen] = useState(false)
 
-  const handleAuthSuccess = async () => {
-    // Session already re-checked by useAuth.login after signIn succeeds
-    // Just close the dialog - the state update from checkSession will re-render
-  }
+  const handleConfigChange = useCallback((newConfigs: Record<string, string>) => {
+    updateConfigs(newConfigs)
+  }, [updateConfigs])
 
-  if (loading || !isLoaded) {
+  if (loading || !isLoaded || !configLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center"><Loader2 className="w-10 h-10 animate-spin text-sky-500 mx-auto mb-3" /><p className="text-gray-500 font-medium">Cargando simulador...</p></div>
@@ -674,86 +597,81 @@ export default function Home() {
     )
   }
 
-  const tabCount = isAdmin ? 4 : 3
+  // Determine visible tabs
+  const showGroups = configs.showGroups !== 'false'
+  const showBracket = configs.showBracket !== 'false'
+  const showStadiums = configs.showStadiums !== 'false'
+  const showCountdown = configs.showCountdown !== 'false'
+  const visibleTabs = [
+    showGroups && 'simulator',
+    showBracket && 'knockout',
+    showStadiums && 'stadiums',
+    isAdmin && 'admin',
+    isAdmin && 'config',
+  ].filter(Boolean) as string[]
+  const tabCount = visibleTabs.length
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Top Bar */}
-      <div className="bg-[#0a1628] border-b border-sky-900/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2"><img src="/logo-24.png" alt="24 Horicias" className="h-6 sm:h-8 w-auto" /></div>
-          <div className="flex items-center gap-3">
-            {!user ? (
-              <Dialog open={authOpen} onOpenChange={setAuthOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="bg-gradient-to-r from-sky-500 to-blue-600 text-white text-xs font-bold h-8">
-                    <LogIn className="w-3.5 h-3.5 mr-1" />Iniciar Sesión
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader><DialogTitle className="text-center text-lg font-black">
-                    {authMode === 'login' ? '⚽ Iniciar Sesión' : '🆕 Crear Cuenta'}
-                  </DialogTitle></DialogHeader>
-                  <AuthDialog mode={authMode} onModeChange={setAuthMode} onSuccess={() => { setAuthOpen(false); handleAuthSuccess() }} loginFn={login} registerFn={register} />
-                </DialogContent>
-              </Dialog>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 bg-white/[0.06] backdrop-blur rounded-lg border border-white/[0.08] px-3 py-1">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white text-[10px] font-bold">{user.name[0]?.toUpperCase()}</div>
-                  <span className="text-xs font-medium text-white/80 hidden sm:inline">{user.name}</span>
-                  {isAdmin && <Crown className="w-3.5 h-3.5 text-amber-400" />}
-                </div>
-                <Button variant="ghost" size="sm" onClick={logout} className="text-sky-300/50 hover:text-white hover:bg-white/10 h-8 text-xs">
-                  <LogOut className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Header */}
+      <Header
+        user={user}
+        loading={loading}
+        onLogin={login}
+        onRegister={register}
+        onLogout={logout}
+        isAdmin={isAdmin}
+        siteName={configs.siteName || 'Mundial 2026'}
+      />
 
       {/* Countdown */}
-      <div className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 pt-4 sm:pt-5"><CountdownTimer /></div>
+      {showCountdown && (
+        <div className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 pt-4 sm:pt-5">
+          <CountdownTimer heroTitle={configs.heroTitle} heroStarted={configs.heroStarted} />
+        </div>
+      )}
 
-      {/* Main */}
+      {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-5 sm:py-7">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
-          <TabsList className={`w-full grid ${isAdmin ? 'grid-cols-4' : 'grid-cols-3'} h-auto p-1 bg-white rounded-xl shadow-sm border border-gray-200`}>
-            <TabsTrigger value="simulator" className="rounded-lg py-2 text-xs sm:text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-sky-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md">
-              <Play className="w-3.5 h-3.5 mr-1" />Simulador
-            </TabsTrigger>
-            <TabsTrigger value="knockout" className="rounded-lg py-2 text-xs sm:text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md">
-              <Zap className="w-3.5 h-3.5 mr-1" />Llaves
-            </TabsTrigger>
-            <TabsTrigger value="stadiums" className="rounded-lg py-2 text-xs sm:text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-md">
-              <ImageIcon className="w-3.5 h-3.5 mr-1" />Sedes
-            </TabsTrigger>
+          <TabsList className={`w-full grid h-auto p-1 bg-white rounded-xl shadow-sm border border-gray-200`} style={{ gridTemplateColumns: `repeat(${tabCount}, 1fr)` }}>
+            {showGroups && (
+              <TabsTrigger value="simulator" className="rounded-lg py-2 text-xs sm:text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-sky-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md">
+                <Play className="w-3.5 h-3.5 mr-1" />Simulador
+              </TabsTrigger>
+            )}
+            {showBracket && (
+              <TabsTrigger value="knockout" className="rounded-lg py-2 text-xs sm:text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md">
+                <Zap className="w-3.5 h-3.5 mr-1" />Llaves
+              </TabsTrigger>
+            )}
+            {showStadiums && (
+              <TabsTrigger value="stadiums" className="rounded-lg py-2 text-xs sm:text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-md">
+                <ImageIcon className="w-3.5 h-3.5 mr-1" />Sedes
+              </TabsTrigger>
+            )}
             {isAdmin && (
               <TabsTrigger value="admin" className="rounded-lg py-2 text-xs sm:text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md">
-                <Settings className="w-3.5 h-3.5 mr-1" />Admin
+                <Crown className="w-3.5 h-3.5 mr-1" />Admin
+              </TabsTrigger>
+            )}
+            {isAdmin && (
+              <TabsTrigger value="config" className="rounded-lg py-2 text-xs sm:text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-500 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-md">
+                <Settings className="w-3.5 h-3.5 mr-1" />Config
               </TabsTrigger>
             )}
           </TabsList>
 
-          <TabsContent value="simulator"><SimulatorView scores={scores} onScoreChange={onScoreChange} resetScores={resetScores} isSaving={isSaving} isLoggedIn={!!user} /></TabsContent>
-          <TabsContent value="knockout"><BracketLlavesView knockoutScores={knockoutScores} onKnockoutScoreChange={onKnockoutScoreChange} resetScores={resetScores} isSaving={isSaving} isLoggedIn={!!user} /></TabsContent>
-          <TabsContent value="stadiums"><StadiumsView /></TabsContent>
+          {showGroups && <TabsContent value="simulator"><SimulatorView scores={scores} onScoreChange={onScoreChange} resetScores={resetScores} isSaving={isSaving} isLoggedIn={!!user} maxGoals={maxGoals} /></TabsContent>}
+          {showBracket && <TabsContent value="knockout"><BracketLlavesView knockoutScores={knockoutScores} onKnockoutScoreChange={onKnockoutScoreChange} resetScores={resetScores} isSaving={isSaving} isLoggedIn={!!user} /></TabsContent>}
+          {showStadiums && <TabsContent value="stadiums"><StadiumsView /></TabsContent>}
           {isAdmin && <TabsContent value="admin"><AdminPanel /></TabsContent>}
+          {isAdmin && <TabsContent value="config"><ConfigPanel onConfigChange={handleConfigChange} /></TabsContent>}
         </Tabs>
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto bg-gradient-to-r from-[#0a1628] via-[#0f2847] to-[#0a1628] text-sky-200/50 py-5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <Trophy className="w-4 h-4 text-amber-400/80" />
-            <span className="text-sm font-bold text-sky-200/70">FIFA World Cup 2026 — Simulador Digital</span>
-            <img src="/logo-24.png" alt="24 Horicias" className="h-5 w-auto opacity-60" />
-          </div>
-          <p className="text-[10px] text-sky-300/30">48 selecciones • 12 grupos • 104 partidos • 16 sedes • 3 países</p>
-        </div>
-      </footer>
+      <Footer siteName={configs.siteName || 'Mundial 2026'} siteDescription={configs.siteDescription || ''} />
     </div>
   )
 }

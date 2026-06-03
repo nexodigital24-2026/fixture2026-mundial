@@ -32,3 +32,9 @@ model Simulation {
 
   @@unique([userId, matchId, matchType])
 }
+
+model Config {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String @default("")
+}
