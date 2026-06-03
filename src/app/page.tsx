@@ -29,6 +29,7 @@ import {
   type GroupMatch,
   type Team,
   type BracketMatch,
+  type BracketRound,
 } from '@/lib/tournament-data'
 import Header from '@/components/mundial/Header'
 import Footer from '@/components/mundial/Footer'
@@ -309,6 +310,146 @@ function computeStandings(group: Group, scores: ScoreState): Standing[] {
   return [...map.values()].sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf)
 }
 
+function resolveBracket(groupScores: ScoreState, knockoutScores: ScoreState): BracketRound[] {
+  // Deep clone bracketRounds
+  const resolved: BracketRound[] = JSON.parse(JSON.stringify(bracketRounds))
+
+  // Step 1: Compute standings for all 12 groups
+  const standingsMap = new Map<string, Standing[]>()
+  for (const group of groups) {
+    standingsMap.set(group.id, computeStandings(group, groupScores))
+  }
+
+  // Step 2: Resolve group position slots (1° and 2° Grupo X)
+  for (const round of resolved) {
+    for (const match of round.matches) {
+      for (const side of ['home', 'away'] as const) {
+        const slot = match[side]
+        const pos = slot.position
+        const groupPosMatch = pos.match(/^([12])° Grupo ([A-L])$/)
+        if (groupPosMatch) {
+          const position = parseInt(groupPosMatch[1])
+          const groupId = groupPosMatch[2]
+          const standings = standingsMap.get(groupId)
+          if (standings && standings.length >= position) {
+            const team = standings[position - 1].team
+            slot.teamCode = team.code
+            slot.flag = team.flag
+            slot.name = team.name
+          }
+        }
+      }
+    }
+  }
+
+  // Step 3: Handle 3rd-place teams
+  const thirdPlaceEntries: { team: Team; group: string; pts: number; gd: number; gf: number }[] = []
+  for (const group of groups) {
+    const standings = standingsMap.get(group.id)
+    if (standings && standings.length >= 3) {
+      const s = standings[2]
+      thirdPlaceEntries.push({ team: s.team, group: group.id, pts: s.pts, gd: s.gf - s.ga, gf: s.gf })
+    }
+  }
+
+  // Rank all 3rd-place teams and select top 8
+  thirdPlaceEntries.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+  const qualifiedThird = thirdPlaceEntries.slice(0, 8)
+
+  // Define paths for 3rd-place team assignment
+  const pathGroups: Record<string, string[]> = {
+    'ABFJ': ['A', 'B', 'F', 'J'],
+    'CDE': ['C', 'D', 'E'],
+    'GHI': ['G', 'H', 'I'],
+    'KLM': ['K', 'L'],
+  }
+
+  // For each path, rank qualifying 3rd-place teams within the path
+  const pathTeams: Record<string, Team[]> = {}
+  for (const [pathKey, groupsList] of Object.entries(pathGroups)) {
+    const teams = qualifiedThird
+      .filter((t) => groupsList.includes(t.group))
+      .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+    pathTeams[pathKey] = teams.map((t) => t.team)
+  }
+
+  // Use counters per path to assign teams to bracket slots in order
+  const pathCounters: Record<string, number> = { 'ABFJ': 0, 'CDE': 0, 'GHI': 0, 'KLM': 0 }
+
+  // Only resolve 3rd-place slots in the first round (Dieciseisavos)
+  for (const match of resolved[0].matches) {
+    for (const side of ['home', 'away'] as const) {
+      const slot = match[side]
+      const pos = slot.position
+      const thirdMatch = pos.match(/^3° \(([A-Z]+)\)$/)
+      if (thirdMatch) {
+        const pathKey = thirdMatch[1]
+        const teams = pathTeams[pathKey]
+        const counter = pathCounters[pathKey] ?? 0
+        if (teams && teams.length > counter) {
+          const team = teams[counter]
+          slot.teamCode = team.code
+          slot.flag = team.flag
+          slot.name = team.name
+        }
+        pathCounters[pathKey] = counter + 1
+      }
+    }
+  }
+
+  // Step 4: Handle knockout advancement (process rounds in order)
+  const matchResults = new Map<number, { winner: Team | null; loser: Team | null }>()
+
+  for (const round of resolved) {
+    for (const match of round.matches) {
+      // First resolve Ganador/Perdedor references for this match's slots
+      for (const side of ['home', 'away'] as const) {
+        const slot = match[side]
+        const pos = slot.position
+
+        const ganadorMatch = pos.match(/^Ganador Match (\d+)$/)
+        if (ganadorMatch) {
+          const refMatchId = parseInt(ganadorMatch[1])
+          const result = matchResults.get(refMatchId)
+          if (result?.winner) {
+            slot.teamCode = result.winner.code
+            slot.flag = result.winner.flag
+            slot.name = result.winner.name
+          }
+        }
+
+        const perdedorMatch = pos.match(/^Perdedor Match (\d+)$/)
+        if (perdedorMatch) {
+          const refMatchId = parseInt(perdedorMatch[1])
+          const result = matchResults.get(refMatchId)
+          if (result?.loser) {
+            slot.teamCode = result.loser.code
+            slot.flag = result.loser.flag
+            slot.name = result.loser.name
+          }
+        }
+      }
+
+      // Store match result if score is available and both teams are set
+      const score = knockoutScores[match.id]
+      const hs = score?.home ?? -1
+      const as2 = score?.away ?? -1
+      if (hs >= 0 && as2 >= 0 && match.home.teamCode && match.away.teamCode) {
+        const homeTeam: Team = { code: match.home.teamCode, flag: match.home.flag, name: match.home.name }
+        const awayTeam: Team = { code: match.away.teamCode, flag: match.away.flag, name: match.away.name }
+        if (hs > as2) {
+          matchResults.set(match.id, { winner: homeTeam, loser: awayTeam })
+        } else if (as2 > hs) {
+          matchResults.set(match.id, { winner: awayTeam, loser: homeTeam })
+        }
+        // Draw = no winner stored, user needs to break the tie
+      }
+    }
+  }
+
+  return resolved
+}
+
 function ScoreInput({ value, onChange, maxGoals }: { value: number; onChange: (v: number) => void; maxGoals: number }) {
   return (
     <button onClick={() => onChange(value < maxGoals ? value + 1 : -1)}
@@ -435,21 +576,35 @@ function BracketScoreInput({ value, onChange }: { value: number | null; onChange
 
 function BracketMatchCard({ match, knockoutScores, onKnockoutScoreChange }: { match: BracketMatch; knockoutScores: ScoreState; onKnockoutScoreChange: (id: number, side: 'home' | 'away', val: number) => void }) {
   const s = knockoutScores[match.id]; const hs = s?.home ?? -1; const as2 = s?.away ?? -1; const has = hs >= 0 && as2 >= 0; const hw = has && hs > as2; const aw = has && as2 > hs
+  const hq = match.home.name !== 'Por definir'
+  const aq = match.away.name !== 'Por definir'
   return (
-    <div className="bg-[#0d1b2a] border border-sky-900/40 rounded-lg overflow-hidden shadow-lg min-w-[200px] sm:min-w-[220px]">
+    <div className={`bg-[#0d1b2a] border rounded-lg overflow-hidden shadow-lg min-w-[200px] sm:min-w-[220px] transition-all ${has ? 'border-emerald-500/30' : 'border-sky-900/40'}`}>
       <div className="flex items-center justify-between px-2 py-0.5 bg-sky-900/30 border-b border-sky-900/40"><span className="text-[9px] font-medium text-sky-400/60 truncate">{match.home.position}</span><span className="text-[9px] text-sky-500/40">vs</span><span className="text-[9px] font-medium text-sky-400/60 truncate">{match.away.position}</span></div>
-      <div className={`flex items-center gap-1.5 px-2 py-1.5 border-b border-sky-900/30 ${hw ? 'bg-emerald-900/30' : ''}`}><span className="text-sm leading-none">{match.home.flag}</span><span className={`text-[11px] font-bold truncate flex-1 ${hw ? 'text-emerald-300' : 'text-white/80'}`}>{match.home.name}</span><BracketScoreInput value={hs >= 0 ? hs : null} onChange={(v) => onKnockoutScoreChange(match.id, 'home', v)} /></div>
-      <div className={`flex items-center gap-1.5 px-2 py-1.5 ${aw ? 'bg-emerald-900/30' : ''}`}><span className="text-sm leading-none">{match.away.flag}</span><span className={`text-[11px] font-bold truncate flex-1 ${aw ? 'text-emerald-300' : 'text-white/80'}`}>{match.away.name}</span><BracketScoreInput value={as2 >= 0 ? as2 : null} onChange={(v) => onKnockoutScoreChange(match.id, 'away', v)} /></div>
+      <div className={`flex items-center gap-1.5 px-2 py-1.5 border-b border-sky-900/30 transition-all ${hw ? 'bg-emerald-900/40' : ''}`}>
+        <span className="text-sm leading-none">{match.home.flag}</span>
+        {hq && !hw && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />}
+        <span className={`text-[11px] font-bold truncate flex-1 ${hw ? 'text-emerald-300' : hq ? 'text-white' : 'text-white/50'}`}>{match.home.name}</span>
+        {hw && <ArrowRight className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
+        <BracketScoreInput value={hs >= 0 ? hs : null} onChange={(v) => onKnockoutScoreChange(match.id, 'home', v)} />
+      </div>
+      <div className={`flex items-center gap-1.5 px-2 py-1.5 transition-all ${aw ? 'bg-emerald-900/40' : ''}`}>
+        <span className="text-sm leading-none">{match.away.flag}</span>
+        {aq && !aw && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />}
+        <span className={`text-[11px] font-bold truncate flex-1 ${aw ? 'text-emerald-300' : aq ? 'text-white' : 'text-white/50'}`}>{match.away.name}</span>
+        {aw && <ArrowRight className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
+        <BracketScoreInput value={as2 >= 0 ? as2 : null} onChange={(v) => onKnockoutScoreChange(match.id, 'away', v)} />
+      </div>
       <div className="flex items-center gap-1 px-2 py-0.5 bg-sky-900/20 border-t border-sky-900/30"><MapPin className="w-2.5 h-2.5 text-sky-600" /><span className="text-[9px] text-sky-500/50 truncate">{match.venue}</span><span className="text-[9px] text-sky-500/50 ml-auto">{match.date}</span></div>
     </div>
   )
 }
 
-function BracketLlavesView({ knockoutScores, onKnockoutScoreChange, resetScores, isSaving, isLoggedIn }: { knockoutScores: ScoreState; onKnockoutScoreChange: (id: number, s: 'home' | 'away', v: number) => void; resetScores: () => void; isSaving: boolean; isLoggedIn: boolean }) {
+function BracketLlavesView({ knockoutScores, onKnockoutScoreChange, resetScores, isSaving, isLoggedIn, resolvedBracket }: { knockoutScores: ScoreState; onKnockoutScoreChange: (id: number, s: 'home' | 'away', v: number) => void; resetScores: () => void; isSaving: boolean; isLoggedIn: boolean; resolvedBracket: BracketRound[] }) {
   const [selectedRound, setSelectedRound] = useState(0)
-  const currentRound = bracketRounds[selectedRound]
+  const currentRound = resolvedBracket[selectedRound]
   const getRoundColor = (idx: number) => ['from-sky-600 to-blue-700', 'from-violet-600 to-purple-700', 'from-amber-600 to-orange-700', 'from-rose-600 to-pink-700', 'from-emerald-600 to-teal-700', 'from-amber-400 to-yellow-500'][idx] || 'from-sky-600 to-blue-700'
-  const getRoundIcon = (idx: number) => idx === bracketRounds.length - 1 ? <Trophy className="w-4 h-4" /> : idx === bracketRounds.length - 2 ? <Star className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />
+  const getRoundIcon = (idx: number) => idx === resolvedBracket.length - 1 ? <Trophy className="w-4 h-4" /> : idx === resolvedBracket.length - 2 ? <Star className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -459,7 +614,7 @@ function BracketLlavesView({ knockoutScores, onKnockoutScoreChange, resetScores,
           <Button variant="outline" size="sm" onClick={resetScores} className="text-xs"><RotateCcw className="w-3 h-3 mr-1" />Resetear</Button>
         </div>
       </div>
-      <div className="flex gap-1.5 overflow-x-auto pb-2">{bracketRounds.map((round, idx) => (
+      <div className="flex gap-1.5 overflow-x-auto pb-2">{resolvedBracket.map((round, idx) => (
         <button key={round.shortName} onClick={() => setSelectedRound(idx)} className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all ${selectedRound === idx ? `bg-gradient-to-r ${getRoundColor(idx)} text-white shadow-lg` : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
           <span className="flex items-center gap-1">{getRoundIcon(idx)}<span>{round.shortName}</span></span><span className="text-[10px] opacity-70 ml-1">({round.matches.length})</span>
         </button>))}</div>
@@ -468,7 +623,7 @@ function BracketLlavesView({ knockoutScores, onKnockoutScoreChange, resetScores,
         <div className={`grid gap-3 ${currentRound.matches.length <= 2 ? 'grid-cols-1 max-w-md mx-auto' : currentRound.matches.length <= 4 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'}`}>
           {currentRound.matches.map((match) => <BracketMatchCard key={match.id} match={match} knockoutScores={knockoutScores} onKnockoutScoreChange={onKnockoutScoreChange} />)}
         </div>
-        <div className="mt-6 flex items-center justify-center gap-1 flex-wrap">{bracketRounds.map((round, idx) => (
+        <div className="mt-6 flex items-center justify-center gap-1 flex-wrap">{resolvedBracket.map((round, idx) => (
           <div key={round.shortName} className="flex items-center">{idx > 0 && <ArrowRight className="w-3 h-3 text-sky-700 mx-1" />}<div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold ${idx === selectedRound ? `bg-gradient-to-r ${getRoundColor(idx)} text-white` : 'bg-sky-900/30 text-sky-400/50'}`}><span>{round.shortName}</span><span className="opacity-50">{round.matches.length}</span></div></div>))}</div>
       </motion.div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{knockoutSchedule.map((round, idx) => (
@@ -583,6 +738,7 @@ export default function Home() {
   const autoSaveDelay = parseInt(configs.autoSaveDelay || '800', 10)
   const maxGoals = parseInt(configs.maxGoals || '9', 10)
   const { scores, knockoutScores, onScoreChange, onKnockoutScoreChange, resetScores, isLoaded, isSaving } = useSimulationPersistence(user?.id ?? null, autoSaveEnabled, autoSaveDelay)
+  const resolvedBracket = useMemo(() => resolveBracket(scores, knockoutScores), [scores, knockoutScores])
   const [activeTab, setActiveTab] = useState('simulator')
 
   const handleConfigChange = useCallback((newConfigs: Record<string, string>) => {
@@ -663,7 +819,7 @@ export default function Home() {
           </TabsList>
 
           {showGroups && <TabsContent value="simulator"><SimulatorView scores={scores} onScoreChange={onScoreChange} resetScores={resetScores} isSaving={isSaving} isLoggedIn={!!user} maxGoals={maxGoals} /></TabsContent>}
-          {showBracket && <TabsContent value="knockout"><BracketLlavesView knockoutScores={knockoutScores} onKnockoutScoreChange={onKnockoutScoreChange} resetScores={resetScores} isSaving={isSaving} isLoggedIn={!!user} /></TabsContent>}
+          {showBracket && <TabsContent value="knockout"><BracketLlavesView knockoutScores={knockoutScores} onKnockoutScoreChange={onKnockoutScoreChange} resetScores={resetScores} isSaving={isSaving} isLoggedIn={!!user} resolvedBracket={resolvedBracket} /></TabsContent>}
           {showStadiums && <TabsContent value="stadiums"><StadiumsView /></TabsContent>}
           {isAdmin && <TabsContent value="admin"><AdminPanel /></TabsContent>}
           {isAdmin && <TabsContent value="config"><ConfigPanel onConfigChange={handleConfigChange} /></TabsContent>}
