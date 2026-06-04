@@ -12,8 +12,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN bun run db:generate
 RUN bun run build
-# Create the initial database at build time
-RUN mkdir -p /app/db && bun run db:push
+# Create the initial database at build time with absolute path
+RUN mkdir -p /app/db && DATABASE_URL="file:/app/db/custom.db" bun run db:push
 
 # Production - use Debian-based node image for OpenSSL compatibility
 FROM node:22-bookworm-slim AS runner
