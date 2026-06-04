@@ -62,6 +62,9 @@ export const authOptions: NextAuthOptions = {
     signIn: "/",
   },
   secret: process.env.NEXTAUTH_SECRET,
+  // Auto-detect URL from request headers for subdomain/proxy support
+  // When behind Caddy reverse proxy, the host is forwarded via headers
+  debug: process.env.NODE_ENV === "development",
 }
 
 const handler = NextAuth(authOptions)

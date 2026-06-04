@@ -11,7 +11,7 @@ export async function POST() {
 
     if (existingAdmin) {
       return NextResponse.json(
-        { error: "Ya existe un usuario administrador", email: existingAdmin.email },
+        { error: "Ya existe un usuario administrador" },
         { status: 409 }
       )
     }
@@ -30,9 +30,8 @@ export async function POST() {
     return NextResponse.json({
       id: admin.id,
       name: admin.name,
-      email: admin.email,
       role: admin.role,
-      message: "Admin creado. Email: admin@mundial2026.com | Password: admin123",
+      message: "Admin creado exitosamente. Use las credenciales proporcionadas por el administrador del sistema.",
     }, { status: 201 })
   } catch (error) {
     console.error("Seed admin error:", error)
