@@ -13,16 +13,18 @@ COPY . .
 RUN bun run db:generate
 RUN bun run build
 
-# Production - use node slim for better compatibility
-FROM node:22-slim AS runner
+# Production - use Debian-based node image for OpenSSL compatibility
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
-# Install openssl needed by Prisma
-RUN apt-get update && apt-get install -y openssl sqlite3 && rm -rf /var/lib/apt/lists/*
+# Install openssl + sqlite3 needed by Prisma SQLite
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends openssl libssl3 sqlite3 && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy built files from standalone output
 COPY --from=builder /app/.next/standalone ./
