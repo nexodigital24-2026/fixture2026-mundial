@@ -321,6 +321,7 @@ function resolveBracket(groupScores: ScoreState, knockoutScores: ScoreState): Br
   }
 
   // Step 2: Resolve group position slots (1° and 2° Grupo X)
+  // Only assign teams that have played at least 1 match
   for (const round of resolved) {
     for (const match of round.matches) {
       for (const side of ['home', 'away'] as const) {
@@ -332,10 +333,12 @@ function resolveBracket(groupScores: ScoreState, knockoutScores: ScoreState): Br
           const groupId = groupPosMatch[2]
           const standings = standingsMap.get(groupId)
           if (standings && standings.length >= position) {
-            const team = standings[position - 1].team
-            slot.teamCode = team.code
-            slot.flag = team.flag
-            slot.name = team.name
+            const entry = standings[position - 1]
+            if (entry.played > 0) {
+              slot.teamCode = entry.team.code
+              slot.flag = entry.team.flag
+              slot.name = entry.team.name
+            }
           }
         }
       }
@@ -343,12 +346,15 @@ function resolveBracket(groupScores: ScoreState, knockoutScores: ScoreState): Br
   }
 
   // Step 3: Handle 3rd-place teams
-  const thirdPlaceEntries: { team: Team; group: string; pts: number; gd: number; gf: number }[] = []
+  // Only include third-place teams that have played at least 1 match
+  const thirdPlaceEntries: { team: Team; group: string; pts: number; gd: number; gf: number; played: number }[] = []
   for (const group of groups) {
     const standings = standingsMap.get(group.id)
     if (standings && standings.length >= 3) {
       const s = standings[2]
-      thirdPlaceEntries.push({ team: s.team, group: group.id, pts: s.pts, gd: s.gf - s.ga, gf: s.gf })
+      if (s.played > 0) {
+        thirdPlaceEntries.push({ team: s.team, group: group.id, pts: s.pts, gd: s.gf - s.ga, gf: s.gf, played: s.played })
+      }
     }
   }
 
@@ -361,7 +367,7 @@ function resolveBracket(groupScores: ScoreState, knockoutScores: ScoreState): Br
     'ABFJ': ['A', 'B', 'F', 'J'],
     'CDE': ['C', 'D', 'E'],
     'GHI': ['G', 'H', 'I'],
-    'KLM': ['K', 'L'],
+    'KL': ['K', 'L'],
   }
 
   // For each path, rank qualifying 3rd-place teams within the path
@@ -374,7 +380,7 @@ function resolveBracket(groupScores: ScoreState, knockoutScores: ScoreState): Br
   }
 
   // Use counters per path to assign teams to bracket slots in order
-  const pathCounters: Record<string, number> = { 'ABFJ': 0, 'CDE': 0, 'GHI': 0, 'KLM': 0 }
+  const pathCounters: Record<string, number> = { 'ABFJ': 0, 'CDE': 0, 'GHI': 0, 'KL': 0 }
 
   // Only resolve 3rd-place slots in the first round (Dieciseisavos)
   for (const match of resolved[0].matches) {

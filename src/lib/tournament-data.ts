@@ -442,7 +442,7 @@ export const bracketRounds: BracketRound[] = [
       {
         id: 87,
         home: { position: "3° (CDE)", teamCode: null, flag: "🏳️", name: "Por definir" },
-        away: { position: "3° (KLM)", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "3° (KL)", teamCode: null, flag: "🏳️", name: "Por definir" },
         homeScore: null,
         awayScore: null,
         date: "3 Jul",
@@ -451,7 +451,7 @@ export const bracketRounds: BracketRound[] = [
       {
         id: 88,
         home: { position: "3° (GHI)", teamCode: null, flag: "🏳️", name: "Por definir" },
-        away: { position: "3° (KLM)", teamCode: null, flag: "🏳️", name: "Por definir" },
+        away: { position: "3° (KL)", teamCode: null, flag: "🏳️", name: "Por definir" },
         homeScore: null,
         awayScore: null,
         date: "3 Jul",
