@@ -13,13 +13,16 @@ COPY . .
 RUN bun run db:generate
 RUN bun run build
 
-# Production
-FROM oven/bun:1-slim AS runner
+# Production - use node slim for better compatibility
+FROM node:22-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
+
+# Install openssl needed by Prisma
+RUN apt-get update && apt-get install -y openssl sqlite3 && rm -rf /var/lib/apt/lists/*
 
 # Copy built files from standalone output
 COPY --from=builder /app/.next/standalone ./
@@ -30,8 +33,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
-COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 # Copy package.json for prisma db push
 COPY --from=builder /app/package.json ./package.json
@@ -40,7 +42,7 @@ COPY --from=builder /app/package.json ./package.json
 RUN mkdir -p /app/db
 
 # Create startup script that initializes DB and starts server
-RUN printf '#!/bin/sh\nset -e\nmkdir -p /app/db\nif [ -f /app/node_modules/.bin/prisma ]; then\n  /app/node_modules/.bin/prisma db push --skip-generate 2>/dev/null || true\nfi\nexec node server.js\n' > /app/start.sh && chmod +x /app/start.sh
+RUN printf '#!/bin/sh\nset -e\nmkdir -p /app/db\nnpx prisma db push --skip-generate 2>/dev/null || true\nexec node server.js\n' > /app/start.sh && chmod +x /app/start.sh
 
 EXPOSE 3000
 
