@@ -12,6 +12,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN bun run db:generate
 RUN bun run build
+# Create the initial database at build time
+RUN mkdir -p /app/db && bun run db:push
 
 # Production - use Debian-based node image for OpenSSL compatibility
 FROM node:22-bookworm-slim AS runner
@@ -21,7 +23,7 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
-# Install openssl + sqlite3 needed by Prisma SQLite
+# Install openssl needed by Prisma
 RUN apt-get update && \
     apt-get install -y --no-install-recommends openssl libssl3 sqlite3 && \
     rm -rf /var/lib/apt/lists/*
@@ -35,16 +37,12 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
-# Copy package.json for prisma db push
-COPY --from=builder /app/package.json ./package.json
+# Copy initial database from builder
+COPY --from=builder /app/db/custom.db /app/db-init/custom.db
 
-# Create db directory
-RUN mkdir -p /app/db
-
-# Create startup script that initializes DB and starts server
-RUN printf '#!/bin/sh\nset -e\nmkdir -p /app/db\nnpx prisma db push --skip-generate 2>/dev/null || true\nexec node server.js\n' > /app/start.sh && chmod +x /app/start.sh
+# Create startup script that copies DB if it doesn't exist and starts server
+RUN printf '#!/bin/sh\nset -e\nmkdir -p /app/db\nif [ ! -f /app/db/custom.db ]; then\n  cp /app/db-init/custom.db /app/db/custom.db\n  echo "Database initialized from build image"\nfi\nexec node server.js\n' > /app/start.sh && chmod +x /app/start.sh
 
 EXPOSE 3000
 
