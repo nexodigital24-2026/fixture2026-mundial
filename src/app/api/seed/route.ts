@@ -33,8 +33,9 @@ export async function POST() {
       role: admin.role,
       message: "Admin creado exitosamente. Use las credenciales proporcionadas por el administrador del sistema.",
     }, { status: 201 })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Seed admin error:", error)
-    return NextResponse.json({ error: "Error al crear admin" }, { status: 500 })
+    const message = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: "Error al crear admin", details: message }, { status: 500 })
   }
 }
